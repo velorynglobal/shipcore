@@ -1,0 +1,15 @@
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "env": {
+    "NEXT_PUBLIC_APP_NAME": "ShipCore",
+    "NEXT_PUBLIC_APP_URL": "https://shipcore.vercel.app",
+    "NODE_ENV": "production"
+  },
+  "regions": ["sin1", "iad1"],
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  }
+}

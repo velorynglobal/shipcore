@@ -1,0 +1,47 @@
+{
+  "name": "ShipCore ERP",
+  "short_name": "ShipCore",
+  "description": "Smart Logistics ERP for LCL, CHA & Freight Forwarders",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0A0F1E",
+  "theme_color": "#1D4ED8",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "New Job",
+      "short_name": "New Job",
+      "description": "Create a new shipment job",
+      "url": "/jobs",
+      "icons": [{ "src": "/icons/icon-72x72.png", "sizes": "72x72" }]
+    },
+    {
+      "name": "Consol",
+      "short_name": "Consol",
+      "description": "View consolidations",
+      "url": "/consol",
+      "icons": [{ "src": "/icons/icon-72x72.png", "sizes": "72x72" }]
+    }
+  ]
+}
