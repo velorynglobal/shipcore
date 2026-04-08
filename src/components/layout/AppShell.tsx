@@ -8,18 +8,20 @@ import { useAuth } from './AuthProvider';
 import { cn, getInitials } from '@/lib/utils';
 import {
   LayoutDashboard, Users, Globe2, Package, Boxes,
-  FileText, LogOut, Menu, X, ChevronRight,
+  FileText, FileCheck, BellRing, LogOut, Menu, X, ChevronRight,
   Bell, Settings, Shield,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { href: '/dashboard',  label: 'Dashboard',   icon: LayoutDashboard, roles: ['admin','operator','viewer'] },
-  { href: '/jobs',       label: 'Jobs',         icon: Package,         roles: ['admin','operator','viewer'] },
-  { href: '/consol',     label: 'Consol / LCL', icon: Boxes,           roles: ['admin','operator','viewer'] },
-  { href: '/customers',  label: 'Customers',    icon: Users,           roles: ['admin','operator','viewer'] },
-  { href: '/agents',     label: 'Agents',       icon: Globe2,          roles: ['admin','operator','viewer'] },
-  { href: '/invoices',   label: 'Invoices',     icon: FileText,        roles: ['admin','operator','viewer'] },
-  { href: '/settings',   label: 'Settings',     icon: Settings,        roles: ['admin'] },
+  { href: '/dashboard',      label: 'Dashboard',      icon: LayoutDashboard, roles: ['admin','operator','viewer'] },
+  { href: '/jobs',           label: 'Jobs',            icon: Package,         roles: ['admin','operator','viewer'] },
+  { href: '/consol',         label: 'Consol / LCL',   icon: Boxes,           roles: ['admin','operator','viewer'] },
+  { href: '/customers',      label: 'Customers',      icon: Users,           roles: ['admin','operator','viewer'] },
+  { href: '/agents',         label: 'Agents',          icon: Globe2,          roles: ['admin','operator','viewer'] },
+  { href: '/invoices',       label: 'Invoices',        icon: FileText,        roles: ['admin','operator','viewer'] },
+  { href: '/customs',        label: 'Customs',         icon: FileCheck,       roles: ['admin','operator','viewer'] },
+  { href: '/notifications',  label: 'Notifications',   icon: BellRing,        roles: ['admin','operator'] },
+  { href: '/settings',       label: 'Settings',        icon: Settings,        roles: ['admin'] },
 ];
 
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
