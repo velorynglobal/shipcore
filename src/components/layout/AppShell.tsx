@@ -19,6 +19,7 @@ const NAV_SECTIONS = [
     items: [
       { href: '/dashboard',       label: 'Dashboard',       icon: LayoutDashboard, roles: ['admin','operator','viewer'] },
       { href: '/enquiries',       label: 'Enquiries',       icon: FileSearch,      roles: ['admin','operator','viewer'] },
+      { href: '/quotes',          label: 'Quotes',           icon: FileText,        roles: ['admin','operator','viewer'] },
       { href: '/jobs',            label: 'Jobs',             icon: Package,         roles: ['admin','operator','viewer'] },
       { href: '/consol',          label: 'Consol / LCL',    icon: Boxes,           roles: ['admin','operator','viewer'] },
       { href: '/customs',         label: 'Customs',          icon: FileCheck,       roles: ['admin','operator','viewer'] },
