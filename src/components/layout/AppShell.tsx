@@ -9,20 +9,53 @@ import { cn, getInitials } from '@/lib/utils';
 import {
   LayoutDashboard, Users, Globe2, Package, Boxes,
   FileText, FileCheck, BellRing, LogOut, Menu, X, ChevronRight,
-  Bell, Settings, Shield,
+  Bell, Settings, Shield, Bot, MessageSquare, IndianRupee,
+  Building2, TrendingUp, FileSearch,
 } from 'lucide-react';
 
-const NAV_ITEMS = [
-  { href: '/dashboard',      label: 'Dashboard',      icon: LayoutDashboard, roles: ['admin','operator','viewer'] },
-  { href: '/jobs',           label: 'Jobs',            icon: Package,         roles: ['admin','operator','viewer'] },
-  { href: '/consol',         label: 'Consol / LCL',   icon: Boxes,           roles: ['admin','operator','viewer'] },
-  { href: '/customers',      label: 'Customers',      icon: Users,           roles: ['admin','operator','viewer'] },
-  { href: '/agents',         label: 'Agents',          icon: Globe2,          roles: ['admin','operator','viewer'] },
-  { href: '/invoices',       label: 'Invoices',        icon: FileText,        roles: ['admin','operator','viewer'] },
-  { href: '/customs',        label: 'Customs',         icon: FileCheck,       roles: ['admin','operator','viewer'] },
-  { href: '/notifications',  label: 'Notifications',   icon: BellRing,        roles: ['admin','operator'] },
-  { href: '/settings',       label: 'Settings',        icon: Settings,        roles: ['admin'] },
+const NAV_SECTIONS = [
+  {
+    label: 'Operations',
+    items: [
+      { href: '/dashboard',       label: 'Dashboard',       icon: LayoutDashboard, roles: ['admin','operator','viewer'] },
+      { href: '/enquiries',       label: 'Enquiries',       icon: FileSearch,      roles: ['admin','operator','viewer'] },
+      { href: '/jobs',            label: 'Jobs',             icon: Package,         roles: ['admin','operator','viewer'] },
+      { href: '/consol',          label: 'Consol / LCL',    icon: Boxes,           roles: ['admin','operator','viewer'] },
+      { href: '/customs',         label: 'Customs',          icon: FileCheck,       roles: ['admin','operator','viewer'] },
+    ],
+  },
+  {
+    label: 'CRM',
+    items: [
+      { href: '/customers',       label: 'Customers',       icon: Users,           roles: ['admin','operator','viewer'] },
+      { href: '/agents',          label: 'Agents',           icon: Globe2,          roles: ['admin','operator','viewer'] },
+      { href: '/vendors',         label: 'Vendors',          icon: Building2,       roles: ['admin','operator','viewer'] },
+    ],
+  },
+  {
+    label: 'Finance',
+    items: [
+      { href: '/invoices',        label: 'Invoices',         icon: FileText,        roles: ['admin','operator','viewer'] },
+      { href: '/payments',        label: 'Payments',         icon: IndianRupee,     roles: ['admin','operator','viewer'] },
+    ],
+  },
+  {
+    label: 'Intelligence',
+    items: [
+      { href: '/notifications',   label: 'Notifications',   icon: BellRing,        roles: ['admin','operator'] },
+      { href: '/agent-dashboard', label: 'AI Agents',        icon: Bot,             roles: ['admin'] },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { href: '/settings',        label: 'Settings',         icon: Settings,        roles: ['admin'] },
+    ],
+  },
 ];
+
+// Flat list for page title lookup
+const ALL_NAV = NAV_SECTIONS.flatMap(s => s.items);
 
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
@@ -40,7 +73,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         'w-64 transition-transform duration-300 ease-out',
         'lg:translate-x-0',
         open ? 'translate-x-0' : '-translate-x-full',
-        'bg-grid-pattern'
       )}>
         {/* Logo */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-shell-700/50">
@@ -49,8 +81,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               <Image
                 src="/veloryn-logo.jpg"
                 alt="Veloryn Global Logistics"
-                width={40}
-                height={40}
+                width={40} height={40}
                 className="w-full h-full object-cover"
               />
             </div>
@@ -58,12 +89,10 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               <div className="font-display font-bold text-white text-sm leading-tight tracking-tight truncate">
                 Veloryn Global
               </div>
-              <div className="text-[10px] text-brand-400 font-mono tracking-wider">
-                ShipCore ERP
-              </div>
+              <div className="text-[10px] text-brand-400 font-mono tracking-wider">ShipCore ERP</div>
             </div>
           </div>
-          <button onClick={onClose} className="lg:hidden text-slate-500 hover:text-white transition-colors p-1 flex-shrink-0">
+          <button onClick={onClose} className="lg:hidden text-slate-500 hover:text-white p-1 flex-shrink-0">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -80,26 +109,36 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           </div>
         )}
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {NAV_ITEMS.filter(item => item.roles.includes(user?.role || 'viewer')).map(item => {
-            const active = pathname === item.href || pathname.startsWith(item.href + '/');
+        {/* Sectioned Nav */}
+        <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
+          {NAV_SECTIONS.map(section => {
+            const visibleItems = section.items.filter(item => item.roles.includes(user?.role || 'viewer'));
+            if (!visibleItems.length) return null;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group',
-                  active
-                    ? 'bg-brand-600 text-white shadow-lg shadow-brand-900/40'
-                    : 'text-slate-400 hover:text-white hover:bg-shell-800'
-                )}
-              >
-                <item.icon className={cn('w-4 h-4 flex-shrink-0', active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300')} />
-                <span className="flex-1">{item.label}</span>
-                {active && <ChevronRight className="w-3 h-3 opacity-60" />}
-              </Link>
+              <div key={section.label}>
+                <div className="text-[10px] text-slate-600 font-mono tracking-widest uppercase px-3 mb-1.5">
+                  {section.label}
+                </div>
+                <div className="space-y-0.5">
+                  {visibleItems.map(item => {
+                    const active = pathname === item.href || pathname.startsWith(item.href + '/');
+                    return (
+                      <Link key={item.href} href={item.href} onClick={onClose}
+                        className={cn(
+                          'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 group',
+                          active
+                            ? 'bg-brand-600 text-white shadow-lg shadow-brand-900/40'
+                            : 'text-slate-400 hover:text-white hover:bg-shell-800'
+                        )}>
+                        <item.icon className={cn('w-4 h-4 flex-shrink-0',
+                          active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300')} />
+                        <span className="flex-1">{item.label}</span>
+                        {active && <ChevronRight className="w-3 h-3 opacity-60" />}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </nav>
@@ -114,11 +153,9 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               <div className="text-sm text-white font-medium truncate">{user?.full_name}</div>
               <div className="text-xs text-slate-500 truncate">{user?.email}</div>
             </div>
-            <button
-              onClick={signOut}
+            <button onClick={signOut}
               className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-all"
-              title="Sign out"
-            >
+              title="Sign out">
               <LogOut className="w-4 h-4" />
             </button>
           </div>
@@ -131,7 +168,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
-  const title = NAV_ITEMS.find(n => pathname.startsWith(n.href))?.label || 'ShipCore';
+  const title = ALL_NAV.find(n => pathname.startsWith(n.href))?.label || 'ShipCore';
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -139,7 +176,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="lg:pl-64 min-h-screen flex flex-col">
         <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200/80 px-4 lg:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
+            <button onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="text-slate-900 font-display font-semibold text-lg">{title}</h1>
@@ -154,7 +192,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 p-4 lg:p-6 animate-fade-in">{children}</main>
         <footer className="px-6 py-3 border-t border-slate-200 text-center">
           <span className="text-xs text-slate-400 font-mono">
-            Veloryn Global Logistics • ShipCore ERP v1.0
+            Veloryn Global Logistics • ShipCore Pro v2.0 • AGaaS
           </span>
         </footer>
       </div>
