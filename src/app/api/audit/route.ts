@@ -1,54 +1,59 @@
 import { NextResponse } from 'next/server';
 
+const EXCHANGE_RATE = 92.87; // CBIC rate
+
 export async function POST(req: Request) {
   try {
     const { shipmentId, cargoDetails } = await req.json();
+    if (!shipmentId || !cargoDetails) {
+      return NextResponse.json({ error: 'shipmentId and cargoDetails are required' }, { status: 400 });
+    }
 
-    // Exchange Rate as of April 7, 2026
-    const EXCHANGE_RATE = 92.87; 
+    const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+    if (!ANTHROPIC_KEY) {
+      // Return mock analysis if no API key configured
+      return NextResponse.json({
+        analysis: `Customs Duty Analysis for Shipment ${shipmentId}\n\nCargo: ${cargoDetails}\n\nNote: Configure ANTHROPIC_API_KEY in environment variables for AI-powered duty analysis.\n\nManual calculation required based on HS code and CBIC rates.\nExchange Rate: 1 USD = ₹${EXCHANGE_RATE}`,
+        exchange_rate: EXCHANGE_RATE,
+      });
+    }
 
-    const response = await fetch('http://localhost:11434/api/generate', {
+    const prompt = `You are a ShipCore Indian Customs Compliance & Duty Expert.
+All financial outputs MUST be in Indian Rupees (INR) using the symbol ₹.
+Use the CBIC exchange rate: 1 USD = ${EXCHANGE_RATE} INR.
+
+Duty Calculation Logic (Budget 2026-27):
+1. Assessable Value (AV) = CIF Value in USD converted to INR at ${EXCHANGE_RATE}
+2. Basic Customs Duty (BCD) = AV × BCD Rate
+3. Social Welfare Surcharge (SWS) = BCD × 10%
+4. IGST Base = AV + BCD + SWS
+5. IGST = IGST Base × IGST Rate
+6. Total Duty = BCD + SWS + IGST
+
+Shipment ID: ${shipmentId}
+Cargo Details: ${cargoDetails}
+
+Provide a structured customs duty analysis with HS code suggestion, applicable rates, and total duty calculation in INR.`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+      },
       body: JSON.stringify({
-        model: 'nemotron-mini',
-        system: `You are the Shipcore Indian Customs Compliance & Duty Expert. 
-                 All financial outputs MUST be in Indian Rupees (INR) using the symbol ₹.
-                 Use the CBIC exchange rate: 1 USD = ${EXCHANGE_RATE} INR.
-                 
-                 Duty Calculation Logic (Budget 2026-27):
-                 1. Assessable Value (AV) = CIF Value in USD converted to INR at ${EXCHANGE_RATE}.
-                 2. Basic Customs Duty (BCD) = 5% of AV.
-                 3. Social Welfare Surcharge (SWS) = 10% of BCD.
-                 4. IGST = 18% of (AV + BCD + SWS).
-                 5. Total Landed Cost = AV + BCD + SWS + IGST.`,
-        prompt: `Perform an Indian Customs Audit and Duty Estimate:
-                 Shipment ID: ${shipmentId}
-                 Cargo: ${cargoDetails}
-                 Value: Assume $10,000 USD if not specified.
-
-                 Instructions:
-                 - Provide a line-item breakdown of BCD, SWS, and IGST in ₹ (INR).
-                 - Check for BIS IS 16046:2018 (Part 2) compliance for Indian ports.
-                 - Verify if MeitY 'Standard Mark' and R-Number are required.
-                 - Note that BCD is 5% for lithium-ion batteries per 2026 Budget.
-                 - Mention if the shipment is eligible for AEO (Authorized Economic Operator) fast-track.`,
-        stream: false,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }],
       }),
     });
 
-    if (!response.ok) {
-      throw new Error(`Ollama connection failed: ${response.statusText}`);
-    }
-
     const data = await response.json();
-    return NextResponse.json({ report: data.response });
+    const analysis = data.content?.[0]?.text || 'Analysis unavailable';
 
-  } catch (error: any) {
-    console.error("Audit API Error:", error);
-    return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ analysis, exchange_rate: EXCHANGE_RATE });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

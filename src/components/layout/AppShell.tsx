@@ -45,6 +45,7 @@ const NAV_SECTIONS = [
     items: [
       { href: '/notifications',   label: 'Notifications',   icon: BellRing,        roles: ['admin','operator'] },
       { href: '/agent-dashboard', label: 'AI Agents',        icon: Bot,             roles: ['admin'] },
+      { href: '/ai-playground',   label: 'AI Playground',    icon: Brain,           roles: ['admin'] },
     ],
   },
   {
