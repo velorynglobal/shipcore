@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from('enquiries')
-      .select('*, customer:customers(company_name, mobile, email), assigned_user:users(full_name)', { count: 'exact' })
+      .select('*, customer:customers(company_name, mobile, email), assigned_user:users!assigned_to(full_name)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + perPage - 1);
 
