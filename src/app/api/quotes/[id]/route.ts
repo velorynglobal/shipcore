@@ -73,7 +73,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     const { data: quote } = await supabase
       .from('quotes')
-      .select('*, enquiry:enquiries(*), customer:customers(*)')
+      .select('*, enquiry:enquiries(id, enquiry_number, origin, destination, cargo_type, cbm, weight, packages, commodity), customer:customers(id, company_name, email, mobile, gst_number)')
       .eq('id', params.id)
       .single();
 
