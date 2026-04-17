@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Users, Globe2, Package, Boxes,
   FileText, FileCheck, BellRing, LogOut, Menu, X, ChevronRight,
   Bell, Settings, Shield, Bot, MessageSquare, IndianRupee,
-  Building2, TrendingUp, FileSearch,
+  Building2, TrendingUp, FileSearch, Brain,
 } from 'lucide-react';
 
 const NAV_SECTIONS = [
