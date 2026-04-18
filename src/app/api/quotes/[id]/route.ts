@@ -14,7 +14,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         *,
         customer:customers(id, company_name, email, mobile, gst_number),
         enquiry:enquiries(id, enquiry_number, origin, destination, cargo_type, cbm, weight, packages, commodity),
-        job:jobs(id, job_number)
+        job:jobs!job_id(id, job_number)
       `)
       .eq('id', params.id)
       .single();

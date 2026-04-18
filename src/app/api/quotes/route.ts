@@ -20,7 +20,7 @@ export async function GET(request: Request) {
         *,
         customer:customers(company_name, email, mobile),
         enquiry:enquiries(enquiry_number, origin, destination, cargo_type),
-        job:jobs(job_number)
+        job:jobs!job_id(job_number)
       `, { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + perPage - 1);
