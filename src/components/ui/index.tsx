@@ -175,9 +175,13 @@ export function Badge({ children, color = 'text-slate-600', bg = 'bg-slate-100',
 }
 
 // ── Card ───────────────────────────────────────────────────
-export function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
+}
+
+export function Card({ children, className, ...props }: CardProps) {
   return (
-    <div className={cn('bg-white border border-slate-200 rounded-xl shadow-card', className)}>
+    <div className={cn('bg-white border border-slate-200 rounded-xl shadow-card', className)} {...props}>
       {children}
     </div>
   );
@@ -241,8 +245,12 @@ export function Th({ children, className }: { children: React.ReactNode; classNa
     </th>
   );
 }
-export function Td({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <td className={cn('px-4 py-3 text-slate-700 border-b border-slate-100', className)}>{children}</td>;
+interface TdProps extends React.TdHTMLAttributes<HTMLTableCellElement> {
+  children: React.ReactNode;
+}
+
+export function Td({ children, className, ...props }: TdProps) {
+  return <td className={cn('px-4 py-3 text-slate-700 border-b border-slate-100', className)} {...props}>{children}</td>;
 }
 export function Tr({ children, onClick, className }: { children: React.ReactNode; onClick?: () => void; className?: string }) {
   return (

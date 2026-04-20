@@ -6,8 +6,7 @@
     "NEXT_PUBLIC_APP_URL": "https://shipcore.vercel.app",
     "NODE_ENV": "production"
   },
-  "regions": ["sin1", "iad1"],
-  "git": {
+   "git": {
     "deploymentEnabled": {
       "main": true
     }
