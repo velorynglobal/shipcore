@@ -11,6 +11,7 @@ import {
   FileText, FileCheck, BellRing, LogOut, Menu, X, ChevronRight,
   Bell, Settings, Shield, Bot, MessageSquare, IndianRupee,
   Building2, TrendingUp, FileSearch, Brain,
+  CheckSquare,
 } from 'lucide-react';
 
 const NAV_SECTIONS = [
@@ -45,6 +46,7 @@ const NAV_SECTIONS = [
     items: [
       { href: '/notifications',   label: 'Notifications',   icon: BellRing,        roles: ['admin','operator'] },
       { href: '/agent-dashboard', label: 'AI Agents',        icon: Bot,             roles: ['admin'] },
+      { href: '/tasks', label: 'Tasks', icon: CheckSquare, roles: ['admin','operator'] },
       { href: '/ai-playground',   label: 'AI Playground',    icon: Brain,           roles: ['admin'] },
     ],
   },

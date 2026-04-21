@@ -1,327 +1,398 @@
 'use client';
-
 import React, { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, FileCheck, ChevronDown, ChevronUp, Calculator } from 'lucide-react';
 import {
-  Button, Card, Table, Th, Td, Tr, Badge,
-  EmptyState, PageLoader, Modal, Input, Select, Textarea,
-} from '@/components/ui';
-import { formatDate, formatCurrency } from '@/lib/utils';
+  Scale, Plus, Search, FileText, CheckCircle, Clock,
+  AlertCircle, Bot, Calendar, ChevronRight, RefreshCw,
+  X, Save, Package, Hash, DollarSign
+} from 'lucide-react';
 
-const STATUS_OPTIONS = [
-  { value: '',               label: 'All Statuses' },
-  { value: 'pending',        label: 'Pending' },
-  { value: 'filed',          label: 'Filed' },
-  { value: 'queried',        label: 'Queried' },
-  { value: 'assessed',       label: 'Assessed' },
-  { value: 'out_of_charge',  label: 'Out of Charge' },
-  { value: 'duty_paid',      label: 'Duty Paid' },
-  { value: 'goods_released', label: 'Goods Released' },
-];
-
-const STATUS_COLORS: Record<string, { color: string; bg: string }> = {
-  pending:        { color: 'text-slate-500',   bg: 'bg-slate-100' },
-  filed:          { color: 'text-blue-600',    bg: 'bg-blue-50' },
-  queried:        { color: 'text-amber-600',   bg: 'bg-amber-50' },
-  assessed:       { color: 'text-violet-600',  bg: 'bg-violet-50' },
-  out_of_charge:  { color: 'text-orange-600',  bg: 'bg-orange-50' },
-  duty_paid:      { color: 'text-teal-600',    bg: 'bg-teal-50' },
-  goods_released: { color: 'text-emerald-600', bg: 'bg-emerald-50' },
+type CustomsEntry = {
+  id: string; job_id: string; be_number?: string; entry_number?: string;
+  be_date?: string; be_type?: string; importer_name?: string; iec_code?: string;
+  gstin?: string; port_of_entry?: string; hs_code?: string;
+  cif_value?: number; assessable_value?: number; exchange_rate?: number;
+  declared_value?: number; currency?: string;
+  basic_duty_rate?: number; basic_duty?: number; igst_rate?: number;
+  igst_amount?: number; social_welfare_surcharge?: number; total_duty?: number;
+  duty_paid_amount?: number; status: string;
+  filing_date?: string; assessment_date?: string; duty_paid_date?: string;
+  out_of_charge_date?: string; release_date?: string;
+  examination_type?: string; examination_date?: string;
+  examination_officer?: string; examination_notes?: string;
+  ai_notes?: string; ai_checked_at?: string;
+  document_checklist?: Record<string, boolean>;
+  remarks?: string; created_at: string;
+  job?: { job_number: string; cargo_description?: string; customer?: { company_name: string } };
 };
 
-const BE_TYPES = [
-  { value: 'home_consumption', label: 'Home Consumption (B/E)' },
-  { value: 'warehousing',      label: 'Into Warehousing' },
-  { value: 'transit',          label: 'Transit' },
-  { value: 'ex_bond',          label: 'Ex-Bond' },
-];
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  pending:        { label: 'Pending',        color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',  icon: <Clock className="w-3 h-3" /> },
+  filed:          { label: 'Filed',          color: 'bg-blue-500/20 text-blue-400 border-blue-500/30',        icon: <FileText className="w-3 h-3" /> },
+  under_assessment:{ label: 'Under Assessment', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30', icon: <Scale className="w-3 h-3" /> },
+  examination:    { label: 'Examination',    color: 'bg-orange-500/20 text-orange-400 border-orange-500/30',  icon: <AlertCircle className="w-3 h-3" /> },
+  query_raised:   { label: 'Query Raised',   color: 'bg-red-500/20 text-red-400 border-red-500/30',           icon: <AlertCircle className="w-3 h-3" /> },
+  duty_paid:      { label: 'Duty Paid',      color: 'bg-teal-500/20 text-teal-400 border-teal-500/30',        icon: <DollarSign className="w-3 h-3" /> },
+  out_of_charge:  { label: 'Out of Charge',  color: 'bg-green-500/20 text-green-400 border-green-500/30',     icon: <CheckCircle className="w-3 h-3" /> },
+  completed:      { label: 'Completed',      color: 'bg-slate-600/20 text-slate-400 border-slate-600/30',     icon: <CheckCircle className="w-3 h-3" /> },
+};
 
-const CURRENCIES = ['USD','EUR','GBP','JPY','CNY','AED','SGD','INR'].map(c => ({ value: c, label: c }));
+const BE_TYPES    = ['into_bond','ex_bond','home_consumption','warehouse','ata_carnet'];
+const EXAM_TYPES  = ['first_check','second_check','scanning','rms','pca'];
+const CURRENCIES  = ['USD','EUR','GBP','JPY','CNY','INR'];
+const STATUSES    = Object.keys(STATUS_CONFIG);
 
-const blank = {
-  job_id: '', be_number: '', be_date: '', be_type: 'home_consumption',
-  importer_name: '', iec_code: '', gstin: '', port_of_entry: '', country_of_origin: '',
-  vessel_flight: '', awb_bl_number: '', description: '', hs_code: '',
-  quantity: '', unit: 'KGS', cif_value: '', assessable_value: '',
-  exchange_rate: '1', currency: 'USD',
-  basic_duty_rate: '0', igst_rate: '18', remarks: '',
+const DOC_LABELS: Record<string, string> = {
+  invoice: 'Commercial Invoice',
+  packing_list: 'Packing List',
+  bl_awb: 'BL / AWB',
+  certificate_of_origin: 'Certificate of Origin',
+  test_report: 'Test Report',
+  iec_copy: 'IEC Copy',
+  gst_registration: 'GST Registration',
+  technical_writeup: 'Technical Write-up',
 };
 
 export default function CustomsPage() {
-  const [entries, setEntries] = useState<any[]>([]);
-  const [total, setTotal]     = useState(0);
+  const [entries, setEntries] = useState<CustomsEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [saving, setSaving]       = useState(false);
-  const [form, setForm]           = useState(blank);
-  const [jobs, setJobs]           = useState<any[]>([]);
-  const [showCalc, setShowCalc]   = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selected, setSelected] = useState<CustomsEntry | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Partial<CustomsEntry>>({});
+  const [saving, setSaving] = useState(false);
+  const [jobs, setJobs] = useState<{ id: string; job_number: string; customer?: { company_name: string } }[]>([]);
 
-  // Calculated duties preview
-  const cifVal      = Number(form.cif_value) || 0;
-  const assVal      = Number(form.assessable_value) || cifVal;
-  const basicDuty   = assVal * (Number(form.basic_duty_rate) / 100);
-  const sws         = basicDuty * 0.10;
-  const igstBase    = assVal + basicDuty + sws;
-  const igstAmt     = igstBase * (Number(form.igst_rate) / 100);
-  const totalDuty   = basicDuty + sws + igstAmt;
-
-  const fetchEntries = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const p = new URLSearchParams({ per_page: '20' });
-      if (statusFilter) p.set('status', statusFilter);
-      const res  = await fetch(`/api/customs?${p}`);
-      const json = await res.json();
-      if (json.error) throw new Error(json.error);
-      setEntries(json.data || []);
-      setTotal(json.total || 0);
-    } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }, [statusFilter]);
-
-  useEffect(() => { fetchEntries(); }, [fetchEntries]);
-
-  useEffect(() => {
-    fetch('/api/jobs?per_page=100&status=arrived')
-      .then(r => r.json()).then(j => setJobs(j.data || []));
+      const res = await fetch('/api/customs?per_page=100');
+      const data = await res.json();
+      setEntries(data.data || []);
+    } catch { toast.error('Failed to load customs entries'); }
+    setLoading(false);
   }, []);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.importer_name || !form.description) {
-      toast.error('Importer name and description are required');
-      return;
-    }
+  const loadJobs = useCallback(async () => {
+    const res = await fetch('/api/jobs?per_page=200');
+    const data = await res.json();
+    setJobs(data.data || []);
+  }, []);
+
+  useEffect(() => { load(); loadJobs(); }, [load, loadJobs]);
+
+  const filtered = entries.filter(e => {
+    const q = search.toLowerCase();
+    if (q && !e.be_number?.toLowerCase().includes(q) && !e.job?.job_number?.toLowerCase().includes(q) && !e.importer_name?.toLowerCase().includes(q)) return false;
+    if (statusFilter !== 'all' && e.status !== statusFilter) return false;
+    return true;
+  });
+
+  const save = async () => {
+    if (!form.job_id) return toast.error('Job required');
     setSaving(true);
     try {
-      const res  = await fetch('/api/customs', {
-        method:  'POST',
+      const isEdit = !!form.id;
+      const url = isEdit ? `/api/customs/${form.id}` : '/api/customs';
+      const res = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          ...form,
-          quantity:        form.quantity        ? Number(form.quantity)        : null,
-          cif_value:       form.cif_value       ? Number(form.cif_value)       : 0,
-          assessable_value:form.assessable_value? Number(form.assessable_value): 0,
-          exchange_rate:   Number(form.exchange_rate),
-          basic_duty_rate: Number(form.basic_duty_rate),
-          igst_rate:       Number(form.igst_rate),
-          job_id:          form.job_id || undefined,
-        }),
+        body: JSON.stringify(form),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
-      toast.success('Customs entry created!');
-      setShowModal(false);
-      setForm(blank);
-      fetchEntries();
-    } catch (err: any) { toast.error(err.message); }
-    finally { setSaving(false); }
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      toast.success(isEdit ? 'Entry updated' : 'BE created');
+      setShowForm(false);
+      setSelected(null);
+      load();
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Failed'); }
+    setSaving(false);
   };
 
-  const updateStatus = async (id: string, status: string) => {
-    try {
-      const res  = await fetch(`/api/customs/${id}`, {
-        method:  'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ status }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
-      toast.success('Status updated');
-      fetchEntries();
-    } catch (e: any) { toast.error(e.message); }
+  const toggleDoc = (key: string) => {
+    setForm(f => ({
+      ...f,
+      document_checklist: {
+        ...(f.document_checklist || {}),
+        [key]: !f.document_checklist?.[key],
+      }
+    }));
   };
 
-  const f = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm(p => ({ ...p, [k]: e.target.value }));
+  // Stats
+  const stats = [
+    { label: 'Total', value: entries.length },
+    { label: 'Pending / Filed', value: entries.filter(e => ['pending','filed','under_assessment'].includes(e.status)).length },
+    { label: 'Examination', value: entries.filter(e => e.status === 'examination').length },
+    { label: 'Out of Charge', value: entries.filter(e => e.status === 'out_of_charge' || e.status === 'completed').length },
+  ];
+
+  const F = ({ label, fkey, type = 'text', options }: { label: string; fkey: string; type?: string; options?: string[] }) => (
+    <div>
+      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{label}</label>
+      {options ? (
+        <select value={String((form as Record<string, unknown>)[fkey] || '')} onChange={e => setForm(f => ({ ...f, [fkey]: e.target.value }))}
+          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-brand-500">
+          <option value="">—</option>
+          {options.map(o => <option key={o} value={o}>{o.replace(/_/g,' ')}</option>)}
+        </select>
+      ) : (
+        <input type={type} value={String((form as Record<string, unknown>)[fkey] || '')}
+          onChange={e => setForm(f => ({ ...f, [fkey]: type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value }))}
+          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-brand-500" />
+      )}
+    </div>
+  );
 
   return (
-    <div className="space-y-5">
+    <div className="min-h-screen bg-slate-950 text-slate-200 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-display font-bold text-slate-900">Customs Clearance</h2>
-          <p className="text-sm text-slate-500">{total} entries</p>
+          <h1 className="text-2xl font-bold text-white">Customs Clearance</h1>
+          <p className="text-slate-400 text-sm mt-1">Bill of Entry, duty calculation, examination tracking</p>
         </div>
-        <Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
-          New Entry
-        </Button>
+        <div className="flex gap-2">
+          <button onClick={load} className="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-400">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button onClick={() => { setForm({}); setSelected(null); setShowForm(true); }}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-semibold">
+            <Plus className="w-4 h-4" /> New BE
+          </button>
+        </div>
       </div>
 
-      {/* Status filters */}
-      <div className="flex gap-2 flex-wrap">
-        {STATUS_OPTIONS.map(s => (
-          <button key={s.value}
-            onClick={() => setStatusFilter(s.value)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-              statusFilter === s.value
-                ? 'bg-shell-800 text-white'
-                : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'
-            }`}>
-            {s.label}
-          </button>
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        {stats.map(s => (
+          <div key={s.label} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <p className="text-2xl font-bold text-white">{s.value}</p>
+            <p className="text-xs text-slate-500 mt-1">{s.label}</p>
+          </div>
         ))}
       </div>
 
+      {/* Filters */}
+      <div className="flex gap-3 mb-5">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search BE, job, importer..."
+            className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-brand-500" />
+        </div>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          className="px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-400 focus:outline-none">
+          <option value="all">All Status</option>
+          {STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s]?.label || s}</option>)}
+        </select>
+      </div>
+
       {/* Table */}
-      <Card className="overflow-hidden">
-        {loading ? <PageLoader /> : entries.length === 0 ? (
-          <EmptyState
-            icon={<FileCheck className="w-8 h-8" />}
-            title="No customs entries"
-            description="Create your first customs clearance entry."
-            action={<Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>New Entry</Button>}
-          />
-        ) : (
-          <Table>
-            <thead><tr>
-              <Th>BE Number</Th>
-              <Th>Importer</Th>
-              <Th>Job</Th>
-              <Th>Description</Th>
-              <Th>Assessable Value</Th>
-              <Th>Total Duty</Th>
-              <Th>BE Date</Th>
-              <Th>Status</Th>
-            </tr></thead>
-            <tbody>
-              {entries.map(entry => {
-                const sc = STATUS_COLORS[entry.status] || STATUS_COLORS.pending;
-                return (
-                  <Tr key={entry.id}>
-                    <Td><span className="font-mono text-sm font-semibold text-brand-700">{entry.be_number || '—'}</span></Td>
-                    <Td><span className="text-sm font-medium">{entry.importer_name}</span></Td>
-                    <Td><span className="font-mono text-xs text-slate-600">{entry.job?.job_number || '—'}</span></Td>
-                    <Td><span className="text-sm truncate max-w-[160px] block">{entry.description}</span></Td>
-                    <Td><span className="font-mono text-sm">{formatCurrency(entry.assessable_value)}</span></Td>
-                    <Td><span className="font-mono text-sm font-semibold text-red-600">{formatCurrency(entry.total_duty)}</span></Td>
-                    <Td><span className="text-sm">{formatDate(entry.be_date)}</span></Td>
-                    <Td>
-                      <select
-                        value={entry.status}
-                        onChange={e => updateStatus(entry.id, e.target.value)}
-                        className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer ${sc.bg} ${sc.color}`}
-                      >
-                        {STATUS_OPTIONS.filter(s => s.value).map(s => (
-                          <option key={s.value} value={s.value}>{s.label}</option>
-                        ))}
-                      </select>
-                    </Td>
-                  </Tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        )}
-      </Card>
+      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-800">
+              {['Job','BE Number','Importer','Port','HS Code','Total Duty','Status','AI'].map(h => (
+                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(e => {
+              const sc = STATUS_CONFIG[e.status] || STATUS_CONFIG.pending;
+              return (
+                <tr key={e.id} onClick={() => { setForm(e); setSelected(e); setShowForm(true); }}
+                  className="border-b border-slate-800/50 hover:bg-slate-800/40 cursor-pointer transition-colors">
+                  <td className="px-4 py-3">
+                    <p className="font-mono text-xs text-brand-400">{e.job?.job_number || '—'}</p>
+                    <p className="text-xs text-slate-500">{e.job?.customer?.company_name || '—'}</p>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-slate-300">{e.be_number || '—'}</td>
+                  <td className="px-4 py-3 text-slate-300">{e.importer_name || '—'}</td>
+                  <td className="px-4 py-3 text-slate-400">{e.port_of_entry || '—'}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-slate-400">{e.hs_code || '—'}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-200">
+                    {e.total_duty ? `₹${e.total_duty.toLocaleString('en-IN')}` : '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${sc.color}`}>
+                      {sc.icon}{sc.label}
+                    </span>
+                    {e.status === 'examination' && (
+                      <p className="text-xs text-orange-400 mt-0.5">{e.examination_type?.replace('_', ' ')}</p>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {e.ai_notes ? (
+                      <span className="flex items-center gap-1 text-xs text-purple-400">
+                        <Bot className="w-3 h-3" /> Checked
+                      </span>
+                    ) : '—'}
+                  </td>
+                </tr>
+              );
+            })}
+            {filtered.length === 0 && !loading && (
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-500">
+                <Scale className="w-8 h-8 mx-auto mb-2 opacity-30" />No customs entries found
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-      {/* Create Modal */}
-      <Modal open={showModal} onClose={() => setShowModal(false)} title="New Customs Entry" size="xl">
-        <form onSubmit={handleCreate} className="space-y-5">
-
-          {/* BE Details */}
-          <div className="form-section">
-            <div className="form-section-title">Bill of Entry Details</div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <Input label="BE Number" value={form.be_number} onChange={f('be_number')} placeholder="e.g. 1234567" />
-              <Input type="date" label="BE Date" value={form.be_date} onChange={f('be_date')} />
-              <Select label="BE Type" value={form.be_type} onChange={f('be_type')} options={BE_TYPES} />
-            </div>
-            <div className="mt-4">
-              <Select label="Link to Job" value={form.job_id} onChange={f('job_id')}
-                placeholder="— Select Job (optional) —"
-                options={jobs.map(j => ({ value: j.id, label: `${j.job_number} — ${j.cargo_description?.slice(0,40)}` }))} />
-            </div>
-          </div>
-
-          {/* Importer */}
-          <div className="form-section">
-            <div className="form-section-title">Importer Details</div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Input label="Importer Name" value={form.importer_name} onChange={f('importer_name')} required placeholder="Company name" />
-              <Input label="IEC Code" value={form.iec_code} onChange={f('iec_code')} placeholder="10-digit IEC" />
-              <Input label="GSTIN" value={form.gstin} onChange={f('gstin')} placeholder="GST number" />
-            </div>
-          </div>
-
-          {/* Shipment */}
-          <div className="form-section">
-            <div className="form-section-title">Shipment Details</div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <Input label="Port of Entry" value={form.port_of_entry} onChange={f('port_of_entry')} placeholder="e.g. INJNP" />
-              <Input label="Country of Origin" value={form.country_of_origin} onChange={f('country_of_origin')} placeholder="e.g. China" />
-              <Input label="AWB / BL Number" value={form.awb_bl_number} onChange={f('awb_bl_number')} placeholder="Master BL" />
-            </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <Textarea label="Cargo Description" value={form.description} onChange={f('description')} required rows={2} placeholder="Description of goods" />
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="HS Code" value={form.hs_code} onChange={f('hs_code')} placeholder="8-digit HS code" />
-                <Input label="Quantity" type="number" value={form.quantity} onChange={f('quantity')} placeholder="0" />
-              </div>
-            </div>
-          </div>
-
-          {/* Valuation & Duties */}
-          <div className="form-section">
-            <div className="flex items-center justify-between mb-4">
-              <div className="form-section-title mb-0">Valuation &amp; Duty Calculation</div>
-              <button type="button" onClick={() => setShowCalc(!showCalc)}
-                className="flex items-center gap-1.5 text-xs text-brand-600 font-medium">
-                <Calculator className="w-3.5 h-3.5" />
-                {showCalc ? 'Hide' : 'Show'} Calculator
-                {showCalc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-              </button>
+      {/* FORM DRAWER */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/70 flex items-start justify-end z-50">
+          <div className="bg-slate-900 border-l border-slate-700 h-full w-full max-w-2xl overflow-y-auto">
+            <div className="sticky top-0 bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white">{form.id ? `BE: ${form.be_number || 'Edit Entry'}` : 'New Bill of Entry'}</h3>
+              <button onClick={() => setShowForm(false)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><X className="w-4 h-4" /></button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <Input label="CIF Value" type="number" value={form.cif_value} onChange={f('cif_value')} placeholder="0.00" step="0.01" />
-              <Input label="Assessable Value" type="number" value={form.assessable_value} onChange={f('assessable_value')} placeholder="Auto from CIF" step="0.01" />
-              <Select label="Currency" value={form.currency} onChange={f('currency')} options={CURRENCIES} />
-              <Input label="Exchange Rate" type="number" value={form.exchange_rate} onChange={f('exchange_rate')} placeholder="1.00" step="0.0001" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <Input label="Basic Duty %" type="number" value={form.basic_duty_rate} onChange={f('basic_duty_rate')} placeholder="0" step="0.01" />
-              <Input label="IGST %" type="number" value={form.igst_rate} onChange={f('igst_rate')} placeholder="18" step="0.01" />
-            </div>
-
-            {/* Duty Calculator Preview */}
-            {showCalc && (
-              <div className="mt-4 bg-slate-50 rounded-xl border border-slate-200 p-4">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Duty Calculation Preview</div>
-                <div className="space-y-1.5">
-                  {[
-                    ['Assessable Value', formatCurrency(assVal)],
-                    ['Basic Customs Duty', `${form.basic_duty_rate}% = ${formatCurrency(basicDuty)}`],
-                    ['Social Welfare Surcharge (10% of BCD)', formatCurrency(sws)],
-                    ['IGST Base', formatCurrency(igstBase)],
-                    [`IGST ${form.igst_rate}%`, formatCurrency(igstAmt)],
-                  ].map(([l, v]) => (
-                    <div key={l} className="flex justify-between text-sm">
-                      <span className="text-slate-500">{l}</span>
-                      <span className="font-mono text-slate-700">{v}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between text-base font-bold border-t border-slate-200 pt-2 mt-2">
-                    <span>Total Duty Payable</span>
-                    <span className="font-mono text-red-600">{formatCurrency(totalDuty)}</span>
-                  </div>
+            <div className="p-6 space-y-8">
+              {/* Job Link */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Job</h4>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Link to Job *</label>
+                  <select value={form.job_id || ''} onChange={e => setForm(f => ({ ...f, job_id: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none">
+                    <option value="">Select job…</option>
+                    {jobs.map(j => <option key={j.id} value={j.id}>{j.job_number} — {j.customer?.company_name}</option>)}
+                  </select>
                 </div>
               </div>
-            )}
-          </div>
 
-          <Textarea label="Remarks" value={form.remarks} onChange={f('remarks')} placeholder="Internal notes..." rows={2} />
+              {/* BE Details */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">BE Details</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <F label="BE Number" fkey="be_number" />
+                  <F label="BE Type" fkey="be_type" options={BE_TYPES} />
+                  <F label="BE Date" fkey="be_date" type="date" />
+                  <F label="Filing Date" fkey="filing_date" type="date" />
+                  <F label="Port of Entry" fkey="port_of_entry" />
+                  <F label="HS Code" fkey="hs_code" />
+                  <F label="Status" fkey="status" options={STATUSES} />
+                  <F label="IEC Code" fkey="iec_code" />
+                </div>
+              </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="outline" type="button" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button type="submit" loading={saving}>Create Entry</Button>
+              {/* Importer */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Importer</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <F label="Importer Name" fkey="importer_name" />
+                  <F label="GSTIN" fkey="gstin" />
+                  <F label="Country of Origin" fkey="country_of_origin" />
+                </div>
+              </div>
+
+              {/* Value */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Valuation</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <F label="Currency" fkey="currency" options={CURRENCIES} />
+                  <F label="Exchange Rate" fkey="exchange_rate" type="number" />
+                  <F label="CIF Value (Foreign)" fkey="cif_value" type="number" />
+                  <F label="Assessable Value (INR)" fkey="assessable_value" type="number" />
+                </div>
+              </div>
+
+              {/* Duty */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Duty Calculation</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <F label="Basic Duty Rate (%)" fkey="basic_duty_rate" type="number" />
+                  <F label="Basic Duty (₹)" fkey="basic_duty" type="number" />
+                  <F label="SWS (₹)" fkey="social_welfare_surcharge" type="number" />
+                  <F label="IGST Rate (%)" fkey="igst_rate" type="number" />
+                  <F label="IGST Amount (₹)" fkey="igst_amount" type="number" />
+                  <F label="Total Duty (₹)" fkey="total_duty" type="number" />
+                  <F label="Duty Paid (₹)" fkey="duty_paid_amount" type="number" />
+                  <F label="Duty Paid Date" fkey="duty_paid_date" type="date" />
+                </div>
+              </div>
+
+              {/* Timeline */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Timeline</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <F label="Assessment Date" fkey="assessment_date" type="date" />
+                  <F label="Out of Charge Date" fkey="out_of_charge_date" type="date" />
+                  <F label="Release Date" fkey="release_date" type="date" />
+                </div>
+              </div>
+
+              {/* Examination */}
+              {(form.status === 'examination' || form.examination_type) && (
+                <div>
+                  <h4 className="text-xs font-bold text-orange-400 uppercase tracking-widest mb-3">⚠ Examination Details</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <F label="Examination Type" fkey="examination_type" options={EXAM_TYPES} />
+                    <F label="Exam Date" fkey="examination_date" type="date" />
+                    <F label="Examination Officer" fkey="examination_officer" />
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Examination Notes</label>
+                    <textarea value={form.examination_notes || ''} onChange={e => setForm(f => ({ ...f, examination_notes: e.target.value }))} rows={3}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-orange-500" />
+                  </div>
+                </div>
+              )}
+
+              {/* AI Notes from Dipika */}
+              {form.ai_notes && (
+                <div>
+                  <h4 className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <Bot className="w-4 h-4" /> Dipika AI Analysis
+                  </h4>
+                  <div className="bg-purple-950/30 border border-purple-800/30 rounded-lg p-4">
+                    <p className="text-xs text-slate-300 whitespace-pre-wrap">{form.ai_notes}</p>
+                    {form.ai_checked_at && (
+                      <p className="text-xs text-slate-500 mt-2">Checked: {new Date(form.ai_checked_at).toLocaleString('en-IN')}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Document Checklist */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Document Checklist</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(DOC_LABELS).map(([key, label]) => (
+                    <button key={key} onClick={() => toggleDoc(key)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-colors text-left ${
+                        form.document_checklist?.[key]
+                          ? 'bg-green-600/20 border-green-600/40 text-green-400'
+                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                      }`}>
+                      <CheckCircle className={`w-3.5 h-3.5 shrink-0 ${form.document_checklist?.[key] ? 'text-green-400' : 'text-slate-600'}`} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Remarks */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Remarks</label>
+                <textarea value={form.remarks || ''} onChange={e => setForm(f => ({ ...f, remarks: e.target.value }))} rows={2}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-brand-500" />
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-slate-900 border-t border-slate-800 px-6 py-4 flex gap-3">
+              <button onClick={() => setShowForm(false)} className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm border border-slate-700">Cancel</button>
+              <button onClick={save} disabled={saving} className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
+                <Save className="w-4 h-4" />{saving ? 'Saving…' : form.id ? 'Update BE' : 'Create BE'}
+              </button>
+            </div>
           </div>
-        </form>
-      </Modal>
+        </div>
+      )}
     </div>
   );
 }
