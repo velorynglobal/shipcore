@@ -48,6 +48,8 @@ const NAV_SECTIONS = [
       { href: '/agent-dashboard', label: 'AI Agents',        icon: Bot,             roles: ['admin'] },
       { href: '/rates',   label: 'Rate Cards',     icon: TrendingUp, roles: ['admin','operator'] },
       { href: '/cfs',     label: 'CFS Operations', icon: Package,    roles: ['admin','operator'] },
+      { href: '/fcl',       label: 'FCL Containers', icon: Package,    roles: ['admin','operator'] },
+      { href: '/coloading', label: 'Co-Loading',     icon: Boxes,      roles: ['admin','operator'] },
       { href: '/reports', label: 'Reports',         icon: BarChart3,  roles: ['admin'] },
       { href: '/tasks', label: 'Tasks', icon: CheckSquare, roles: ['admin','operator'] },
       { href: '/ai-playground',   label: 'AI Playground',    icon: Brain,           roles: ['admin'] },
