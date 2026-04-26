@@ -2,39 +2,34 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const supabase = createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type') || 'agents';
+    const { data: profile } = await supabase
+      .from('users')
+      .select('company_id, role')
+      .eq('id', user.id)
+      .single();
 
-    let data: any[] = [];
+    if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
 
-    if (type === 'agents') {
-      const { data: d } = await supabase.from('ai_agents').select('*').order('agent_type');
-      data = d || [];
-    } else if (type === 'logs') {
-      const { data: d } = await supabase.from('agent_logs').select('*')
-        .order('started_at', { ascending: false }).limit(100);
-      data = d || [];
-    } else if (type === 'messages') {
-      const { data: d } = await supabase.from('agent_messages').select('*')
-        .order('created_at', { ascending: false }).limit(50);
-      data = d || [];
-    } else if (type === 'proposals') {
-      const { data: d } = await supabase.from('feature_proposals').select('*')
-        .order('priority_score', { ascending: false }).limit(20);
-      data = d || [];
-    } else if (type === 'tasks') {
-      const { data: d } = await supabase.from('tasks').select('*')
-        .eq('status', 'pending').order('due_date', { ascending: true }).limit(50);
-      data = d || [];
-    }
+    // Fetch all 12 agents
+    const { data: agents, error } = await supabase
+      .from('ai_agents')
+      .select('agent_key, display_name, agent_domain, agent_class, status, last_run_at, run_count, error_count, permissions, can_approve')
+      .eq('company_id', profile.company_id)
+      .order('display_name', { ascending: true });
 
-    return NextResponse.json({ data, error: null });
+    if (error) throw error;
+
+    return NextResponse.json({
+      agents: agents ?? [],
+      total: agents?.length ?? 0,
+      error: null,
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
