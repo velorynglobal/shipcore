@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { requireRouteAccess } from '@/lib/route-auth';
+import { buildColoadItemRows, hydrateColoadItems, sanitizeColoadRecord } from '@/lib/coloading';
+import { nextColoadNumber } from '@/lib/numbering';
 
 export async function GET(request: Request) {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireRouteAccess();
+    if (auth.errorResponse) return auth.errorResponse;
 
-    const { data: profile } = await supabase.from('users').select('company_id').eq('id', user.id).single();
-    if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    const { supabase, profile } = auth;
 
     const { searchParams } = new URL(request.url);
     const perPage = parseInt(searchParams.get('per_page') || '100');
@@ -29,16 +29,16 @@ export async function GET(request: Request) {
     const { data: coloads, error, count } = await query;
     if (error) throw error;
 
-    // Fetch items for each coload
     const ids = (coloads ?? []).map((c: any) => c.id);
     let itemMap: Record<string, any[]> = {};
     if (ids.length > 0) {
-      const { data: items } = await supabase
+      const { data: rawItems } = await supabase
         .from('coloading_items')
         .select('*')
         .in('coload_id', ids)
         .order('created_at', { ascending: true });
-      (items ?? []).forEach((item: any) => {
+      const items = await hydrateColoadItems(supabase, rawItems ?? []);
+      items.forEach((item: any) => {
         if (!itemMap[item.coload_id]) itemMap[item.coload_id] = [];
         itemMap[item.coload_id].push(item);
       });
@@ -53,22 +53,15 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireRouteAccess({ minimumRole: 'operator' });
+    if (auth.errorResponse) return auth.errorResponse;
 
-    const { data: profile } = await supabase.from('users').select('company_id, role').eq('id', user.id).single();
-    if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
-    if (profile.role === 'viewer') return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-
+    const { supabase, profile, user } = auth;
     const body = await request.json();
-    const { items, ...coloadData } = body;
+    const items = Array.isArray(body.items) ? body.items : [];
+    const coloadData = sanitizeColoadRecord(body);
 
-    // Generate coload number
-    const year  = new Date().getFullYear();
-    const { count } = await supabase.from('coloading').select('*', { count: 'exact', head: true }).eq('company_id', profile.company_id);
-    const seq   = String((count ?? 0) + 1).padStart(4, '0');
-    const coload_number = `CL-${year}-${seq}`;
+    const coload_number = await nextColoadNumber(supabase);
 
     const { data: coload, error } = await supabase
       .from('coloading')
@@ -78,16 +71,21 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
-    // Insert items
-    if (items?.length > 0) {
-      const itemRows = items.map((it: any) => ({
-        ...it, coload_id: coload.id, company_id: profile.company_id,
-      }));
+    if (items.length > 0) {
+      const itemRows = buildColoadItemRows(items, profile.company_id, coload.id);
       const { error: itemError } = await supabase.from('coloading_items').insert(itemRows);
-      if (itemError) console.error('Items insert error:', itemError);
+      if (itemError) {
+        await supabase
+          .from('coloading')
+          .delete()
+          .eq('id', coload.id)
+          .eq('company_id', profile.company_id);
+        throw itemError;
+      }
     }
 
-    return NextResponse.json({ data: coload, error: null }, { status: 201 });
+    const hydratedItems = await hydrateColoadItems(supabase, buildColoadItemRows(items, profile.company_id, coload.id));
+    return NextResponse.json({ data: { ...coload, items: hydratedItems }, error: null }, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

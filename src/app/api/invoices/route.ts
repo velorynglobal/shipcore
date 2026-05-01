@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
-import { generateInvoiceNumber } from '@/lib/utils';
+import { nextInvoiceNumber } from '@/lib/numbering';
 
 export async function GET(request: Request) {
   try {
@@ -41,8 +41,7 @@ export async function POST(request: Request) {
     const taxable: number = taxable_amount || customer_amount;
     const gst_amount: number = taxable * (gst_rate / 100);
     const total_amount: number = taxable + gst_amount;
-    const seq = Math.floor(Math.random() * 9000) + 1000;
-    const invoice_number = generateInvoiceNumber(seq);
+    const invoice_number = await nextInvoiceNumber(supabase);
     const companyId: string = profile.company_id;
 
     const { data, error } = await supabase.from('invoices').insert({

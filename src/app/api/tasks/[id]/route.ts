@@ -1,27 +1,32 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { requireRouteAccess } from '@/lib/route-auth';
 
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireRouteAccess({ minimumRole: 'operator' });
+    if (auth.errorResponse) return auth.errorResponse;
+
+    const { supabase, profile } = auth;
 
     const body = await request.json();
-    const updates: Record<string, any> = { ...body };
+    const { id, company_id, created_at, created_by, ...rest } = body;
+    void id; void company_id; void created_at; void created_by;
+
+    const updates: Record<string, any> = { ...rest };
 
     if (body.status === 'completed') {
-      updates.completed_at = new Date().toISOString();
+      updates.completed_at = body.completed_at || new Date().toISOString();
     }
 
     const { data, error } = await supabase
       .from('tasks')
       .update(updates)
       .eq('id', params.id)
+      .eq('company_id', profile.company_id)
       .select()
       .single();
 
@@ -37,11 +42,15 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireRouteAccess({ minimumRole: 'operator' });
+    if (auth.errorResponse) return auth.errorResponse;
 
-    const { error } = await supabase.from('tasks').delete().eq('id', params.id);
+    const { supabase, profile } = auth;
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', params.id)
+      .eq('company_id', profile.company_id);
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (err: any) {

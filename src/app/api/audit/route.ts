@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
+import { requireRouteAccess } from '@/lib/route-auth';
 
 const EXCHANGE_RATE = 92.87; // CBIC rate
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireRouteAccess({ minimumRole: 'operator' });
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { shipmentId, cargoDetails } = await req.json();
     if (!shipmentId || !cargoDetails) {
       return NextResponse.json({ error: 'shipmentId and cargoDetails are required' }, { status: 400 });

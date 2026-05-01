@@ -95,7 +95,7 @@ export async function GET(request: Request) {
         supabase.from('containers').select('risk_level, is_returned').eq('company_id', cid).eq('is_returned', false),
       ]);
 
-      const activeStatuses = ['booking_confirmed','in_transit','arrived','customs_clearance','documentation','cargo_received'];
+      const activeStatuses = ['booked', 'in-transit', 'arrived', 'customs-clearance'];
       const summary = {
         active_jobs:         jobs.data?.filter((j: any) => activeStatuses.includes(j.status)).length ?? 0,
         total_jobs_month:    jobs.data?.filter((j: any) => new Date(j.created_at) >= thisMonth).length ?? 0,

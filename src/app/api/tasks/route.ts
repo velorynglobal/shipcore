@@ -1,15 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { requireRouteAccess } from '@/lib/route-auth';
 
 export async function GET(request: Request) {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireRouteAccess();
+    if (auth.errorResponse) return auth.errorResponse;
 
-    const { data: profile } = await supabase.from('users').select('company_id').eq('id', user.id).single();
-    if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    const { supabase, profile } = auth;
 
     const { searchParams } = new URL(request.url);
     const status   = searchParams.get('status');
@@ -39,13 +37,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireRouteAccess({ minimumRole: 'operator' });
+    if (auth.errorResponse) return auth.errorResponse;
 
-    const { data: profile } = await supabase.from('users').select('company_id, role').eq('id', user.id).single();
-    if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
-    if (profile.role === 'viewer') return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    const { supabase, profile, user } = auth;
 
     const body = await request.json();
     const { data, error } = await supabase

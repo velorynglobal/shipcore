@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
-import { generateConsolNumber, CONTAINER_CAPACITIES } from '@/lib/utils';
+import { CONTAINER_CAPACITIES } from '@/lib/utils';
+import { nextConsolNumber } from '@/lib/numbering';
 
 export async function GET(request: Request) {
   try {
@@ -36,8 +37,7 @@ export async function POST(request: Request) {
     const { container_type = '40HC', container_size, pol, pod, carrier, vessel, voyage, etd, eta } = body;
     if (!pol || !pod) return NextResponse.json({ error: 'POL and POD are required' }, { status: 400 });
     const capacity: number = container_size || (CONTAINER_CAPACITIES[container_type] as number) || 68;
-    const seq = Math.floor(Math.random() * 9000) + 1000;
-    const consol_number = generateConsolNumber(seq);
+    const consol_number = await nextConsolNumber(supabase);
     const { data, error } = await supabase.from('consol').insert({
       company_id: profile.company_id,
       consol_number, container_type, container_size: capacity,

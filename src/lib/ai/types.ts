@@ -9,7 +9,7 @@ export interface AiUsage {
 export interface AiGenerateResult<T> {
   output: T;
   model: string;
-  provider: 'openai';
+  provider: 'openai' | 'anthropic';
   usage?: AiUsage;
 }
 

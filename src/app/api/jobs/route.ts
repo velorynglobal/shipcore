@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
-import { generateJobNumber, generateHBLNumber } from '@/lib/utils';
+import { nextJobNumbers } from '@/lib/numbering';
 
 export async function GET(request: Request) {
   try {
@@ -51,9 +51,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'POL, POD and cargo description are required' }, { status: 400 });
     }
 
-    const seq = Math.floor(Math.random() * 9000) + 1000;
-    const job_number = generateJobNumber(job_type, seq);
-    const hbl_number = generateHBLNumber(seq);
+    const { jobNumber: job_number, hblNumber: hbl_number } = await nextJobNumbers(supabase, job_type);
 
     const { data, error } = await supabase.from('jobs').insert({
       company_id: profile.company_id,

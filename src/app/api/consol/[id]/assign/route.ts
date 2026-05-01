@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { requireRouteAccess } from '@/lib/route-auth';
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -62,9 +63,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireRouteAccess({ minimumRole: 'operator' });
+    if (auth.errorResponse) return auth.errorResponse;
+
+    const { supabase } = auth;
     const { searchParams } = new URL(request.url);
     const job_id = searchParams.get('job_id');
     if (!job_id) return NextResponse.json({ error: 'job_id is required' }, { status: 400 });

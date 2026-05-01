@@ -204,7 +204,7 @@ export default function TasksPage() {
       if (data.error) throw new Error(data.error);
       toast.success('Task created');
       setCreate(false);
-      setNewTitle(''); setNewDesc(''); setNewPriority('medium'); setNewType('manual'); setNewDue('');
+      setNewTitle(''); setNewDesc(''); setNewPrio('medium'); setNewType('manual'); setNewDue('');
       load();
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Failed'); }
     setSaving(false);

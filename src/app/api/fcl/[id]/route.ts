@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { requireRouteAccess } from '@/lib/route-auth';
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    const supabase = createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireRouteAccess({ minimumRole: 'operator' });
+    if (auth.errorResponse) return auth.errorResponse;
 
+    const { supabase } = auth;
     const body = await request.json();
     const { id, company_id, created_at, job, ...updates } = body;
     void id; void company_id; void created_at; void job;

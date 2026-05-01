@@ -57,7 +57,7 @@ function buildResult<T>(output: T, model: string): AiGenerateResult<T> {
   return {
     output,
     model,
-    provider: 'openai',
+    provider: 'anthropic',
   };
 }
 

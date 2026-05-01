@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { nextQuoteNumber } from '@/lib/numbering';
 
 export async function GET(request: Request) {
   try {
@@ -47,10 +48,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    // Generate quote number
-    const year = new Date().getFullYear();
-    const { count } = await supabase.from('quotes').select('*', { count: 'exact', head: true }).eq('company_id', profile.company_id);
-    const quoteNumber = `QT-${year}-${String((count || 0) + 1).padStart(4, '0')}`;
+    const quoteNumber = await nextQuoteNumber(supabase);
 
     // Calculate margin
     const buyRate  = Number(body.buy_rate) || 0;

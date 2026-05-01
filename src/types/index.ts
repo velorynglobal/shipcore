@@ -95,6 +95,8 @@ export interface Job {
   job_number: string;
   job_type: JobType;
   status: JobStatus;
+  enquiry_id?: string;
+  quote_id?: string;
   
   customer_id?: string;
   consignee_name?: string;
@@ -126,6 +128,9 @@ export interface Job {
   be_number?: string;
   be_date?: string;
   assessed_value?: number;
+  buy_total: number;
+  sell_total: number;
+  profit: number;
   
   remarks?: string;
   created_by?: string;
