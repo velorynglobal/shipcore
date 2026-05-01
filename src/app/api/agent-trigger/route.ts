@@ -1,59 +1,77 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
-import { requireRouteAccess } from '@/lib/route-auth';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 
-const AGENT_KEY_PATTERN = /^[a-z0-9]+_agent$/;
-
-function getExpectedAgentUrl(agentKey: string): string | null {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) return null;
-
-  const origin = new URL(supabaseUrl).origin;
-  const slug = agentKey.replace(/_/g, '-');
-  return `${origin}/functions/v1/${slug}`;
-}
+export const maxDuration = 30; // Allow 30s for cold starts
 
 export async function POST(request: Request) {
   try {
-    const auth = await requireRouteAccess({ minimumRole: 'admin' });
-    if (auth.errorResponse) return auth.errorResponse;
+    const supabase = createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // Allow admin or operator to trigger agents
+    const { data: profile } = await supabase
+      .from('users')
+      .select('company_id, role')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    if (!['admin', 'operator'].includes(profile.role || '')) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
 
     const { url, agent_key } = await request.json();
-    if (!url || !agent_key) return NextResponse.json({ error: 'agent_key and url are required' }, { status: 400 });
-    if (!AGENT_KEY_PATTERN.test(agent_key)) {
-      return NextResponse.json({ error: 'Invalid agent_key' }, { status: 400 });
-    }
+    if (!url) return NextResponse.json({ error: 'URL required' }, { status: 400 });
 
-    const expectedUrl = getExpectedAgentUrl(agent_key);
-    if (!expectedUrl) {
-      return NextResponse.json({ error: 'Supabase URL is not configured' }, { status: 500 });
-    }
-    if (url !== expectedUrl) {
-      return NextResponse.json({ error: 'URL is not allowed for this agent' }, { status: 400 });
-    }
+    // Call edge function with timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000); // 25s timeout
 
-    const res = await fetch(expectedUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-      signal: AbortSignal.timeout(10000),
-    });
-    const raw = await res.text();
-    let data: unknown = {};
     try {
-      data = raw ? JSON.parse(raw) : {};
-    } catch {
-      data = { raw };
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      // Don't fail if response isn't JSON
+      const data = await res.json().catch(() => ({ status: res.status }));
+      
+      // Log the trigger in agent_messages
+      await supabase.from('agent_messages').insert({
+        company_id: profile.company_id,
+        from_agent: 'ajit_agent',
+        to_agent: agent_key,
+        message_type: 'task',
+        priority: 'high',
+        subject: `Manual trigger from dashboard`,
+        payload: { triggered_by: user.id, timestamp: new Date().toISOString() },
+        status: 'processed',
+      }).single();
+
+      return NextResponse.json({
+        success: true,
+        agent: agent_key,
+        response: data,
+      });
+
+    } catch (fetchErr: any) {
+      clearTimeout(timeout);
+      if (fetchErr.name === 'AbortError') {
+        // Timeout — but agent may still be running
+        return NextResponse.json({
+          success: true,
+          agent: agent_key,
+          note: 'Agent triggered — running in background (took >25s)',
+        });
+      }
+      throw fetchErr;
     }
 
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: 'Agent trigger failed', agent: agent_key, response: data },
-        { status: res.status }
-      );
-    }
-
-    return NextResponse.json({ success: true, agent: agent_key, response: data });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
