@@ -50,7 +50,8 @@ export async function POST(request: Request) {
     if (error) throw error;
 
     // Fire-and-forget: trigger ajit-agent to forward instruction
-    fetch('https://wceiurzrlrcahviywlky.supabase.co/functions/v1/ajit-agent', {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wceiurzrlrcahviywlky.supabase.co';
+    fetch(`${supabaseUrl}/functions/v1/ajit-agent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ instruction, target_agent, priority }),
