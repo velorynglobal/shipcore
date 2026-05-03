@@ -11,7 +11,7 @@ import {
 import type { z } from 'zod';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
+const DEFAULT_MODEL = 'claude-3-haiku-20240307';
 
 function getApiKey(): string | undefined {
   return process.env.ANTHROPIC_API_KEY;

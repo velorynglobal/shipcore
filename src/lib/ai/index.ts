@@ -2,7 +2,7 @@ import {
   generateInvoiceLineItemSuggestions,
   generateJobDraft,
   validateDocumentData,
-} from '@/lib/ai/providers/openai';
+} from '@/lib/ai/providers/anthropic';
 
 export const aiService = {
   generateJobDraft,
