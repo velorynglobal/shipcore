@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { callAiRouterWithRetry } from '@/lib/ai/router';
 
 export async function POST(request: Request) {
   try {
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
     if (!fromAgent) return NextResponse.json({ error: 'Ajit agent not found' }, { status: 404 });
     if (!toAgent)   return NextResponse.json({ error: `Agent ${target_agent} not found` }, { status: 404 });
 
+    const basePayload = { instruction, from: 'md_dashboard', timestamp: new Date().toISOString() };
     const { data, error } = await supabase
       .from('agent_messages')
       .insert({
@@ -40,7 +42,7 @@ export async function POST(request: Request) {
         message_type:  'task',
         priority:      priority || 'high',
         subject:       instruction.slice(0, 100),
-        payload:       { instruction, from: 'md_dashboard', timestamp: new Date().toISOString() },
+        payload:       basePayload,
         status:        'pending',
         created_by:    user.id,
       })
@@ -49,15 +51,24 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
-    // Fire-and-forget: trigger ajit-agent to forward instruction
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wceiurzrlrcahviywlky.supabase.co';
-    fetch(`${supabaseUrl}/functions/v1/ajit-agent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instruction, target_agent, priority }),
-    }).catch(() => {});
+    // Send instruction to Ajit agent via AI Router (7-model fallback chain)
+    const aiResult = await callAiRouterWithRetry({
+      instruction: `Forward this instruction to ${target_agent}: ${instruction}`,
+      context: { from_agent: 'ajit_agent', target_agent, priority: priority || 'high' },
+      modelHint: 'claude', // Prefer Claude models for logistics tasks
+    });
 
-    return NextResponse.json({ success: true, message_id: data.id });
+    // Optionally update message status based on AI result
+    const updatedPayload = aiResult.success && aiResult.response
+      ? { ...basePayload, ai_response: aiResult.response, model: aiResult.model }
+      : { ...basePayload, error: aiResult.error };
+
+    await supabase
+      .from('agent_messages')
+      .update({ status: aiResult.success ? 'completed' : 'failed', payload: updatedPayload })
+      .eq('id', data.id);
+
+    return NextResponse.json({ success: true, message_id: data.id, ai_model: aiResult.model });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
