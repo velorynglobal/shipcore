@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Sans, IBM_Plex_Mono, Syne } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from '@/components/layout/AuthProvider';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import './globals.css';
 
 const ibmPlexSans = IBM_Plex_Sans({
@@ -46,7 +47,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${ibmPlexSans.variable} ${ibmPlexMono.variable} ${syne.variable}`}>
       <body className="font-sans antialiased bg-slate-50 text-slate-900">
         <AuthProvider>
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </AuthProvider>
         <Toaster
           position="top-right"

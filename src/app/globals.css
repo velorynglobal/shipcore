@@ -61,3 +61,8 @@
   .no-print { display: none !important; }
   body { background: white; }
 }
+
+/* Spin animation for loading spinner */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+.animate-spin { animation: spin 1s linear infinite; }
