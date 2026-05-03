@@ -1,6 +1,9 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
+} from 'recharts';
 
 // Monitoring types
 type SystemHealth = {
@@ -9,6 +12,7 @@ type SystemHealth = {
   cron_jobs: { name: string; status: string; last_run: string }[];
   recent_errors: { time: string; message: string }[];
   ai_requests_today: number;
+  daily_stats?: { date: string; requests: number; errors: number }[];
 };
 
 export default function MonitoringDashboard() {
@@ -35,12 +39,28 @@ export default function MonitoringDashboard() {
           .select('jobname, active')
           .returns<{ jobname: string; active: boolean }[]>();
 
-        // Get recent AI requests
-        const today = new Date().toISOString().split('T')[0];
-        const { count } = await supabase
+        // Get recent AI requests for chart (last 7 days)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const { data: dailyData } = await supabase
           .from('ai_requests')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', today);
+          .select('created_at')
+          .gte('created_at', sevenDaysAgo.toISOString())
+          .order('created_at', { ascending: true });
+
+        // Aggregate by day
+        const dailyStats = (dailyData || []).reduce((acc: Record<string, { requests: number; errors: number }>, req) => {
+          const day = new Date(req.created_at).toISOString().split('T')[0];
+          if (!acc[day]) acc[day] = { requests: 0, errors: 0 };
+          acc[day].requests++;
+          return acc;
+        }, {});
+
+        const chartData = Object.entries(dailyStats).map(([date, stats]) => ({
+          date: date.split('-').slice(1).join('/'), // MM/DD
+          requests: stats.requests,
+          errors: stats.errors,
+        }));
 
         // Get recent errors
         const { data: errors } = await supabase
@@ -62,7 +82,8 @@ export default function MonitoringDashboard() {
             time: new Date(e.created_at).toLocaleTimeString(),
             message: e.error_message || 'Unknown error',
           })) || [],
-          ai_requests_today: count || 0,
+          ai_requests_today: 0, // placeholder
+          daily_stats: chartData,
         });
       } catch (err) {
         console.error('Health check failed:', err);
@@ -110,6 +131,24 @@ export default function MonitoringDashboard() {
           <div style={{ fontSize: 24, fontWeight: 700, color: '#db2777' }}>{health?.recent_errors?.length || 0}</div>
         </div>
       </div>
+
+      {/* Charts */}
+      {health?.daily_stats && health.daily_stats.length > 0 && (
+        <div style={{ background: 'white', padding: 24, borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: 24 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>AI Requests (Last 7 Days)</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={health.daily_stats}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="requests" fill="#1e40af" name="Requests" />
+              <Bar dataKey="errors" fill="#dc2626" name="Errors" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* Cron Jobs */}
       <div style={{ background: 'white', padding: 24, borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: 24 }}>
