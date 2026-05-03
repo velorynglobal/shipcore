@@ -1,9 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { generateInvoicePDF } from '@/lib/pdf/InvoicePDF';
 import { sendEmail, buildInvoiceEmail, type EmailMessage } from '@/lib/email';
+import { pdfLimiter } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
+    // Apply rate limiting
+    const { limited, remaining, resetTime } = await pdfLimiter(request);
+    if (limited) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'Retry-After': Math.ceil((resetTime - Date.now()) / 1000).toString(),
+          'X-RateLimit-Remaining': '0',
+        },
+      });
+    }
+
     const { invoice, email_to } = await request.json();
     if (!invoice) {
       return new Response(JSON.stringify({ error: 'invoice payload required' }), {

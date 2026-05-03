@@ -1,9 +1,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { generateHBLPDF } from '@/lib/pdf/HBLPDF';
 import { sendEmail, type EmailMessage } from '@/lib/email';
+import { pdfLimiter } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
+    // Apply rate limiting
+    const { limited, remaining, resetTime } = await pdfLimiter(request);
+    if (limited) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'Retry-After': Math.ceil((resetTime - Date.now()) / 1000).toString(),
+          'X-RateLimit-Remaining': '0',
+        },
+      });
+    }
     const { hbl, email_to } = await request.json();
     if (!hbl) {
       return new Response(JSON.stringify({ error: 'hbl payload required' }), {

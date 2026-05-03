@@ -1,8 +1,25 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { sendEmail, type EmailMessage } from '@/lib/email';
+import { whatsappLimiter } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
+    // Apply rate limiting
+    const { limited, remaining, resetTime } = await whatsappLimiter(request);
+    if (limited) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil((resetTime - Date.now()) / 1000).toString(),
+            'X-RateLimit-Remaining': '0',
+          },
+        }
+      );
+    }
+
     const supabase = createServerSupabaseClient();
     
     // Parse WhatsApp webhook payload (Twilio/WATI format)

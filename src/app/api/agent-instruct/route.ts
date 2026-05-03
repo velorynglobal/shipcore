@@ -2,9 +2,25 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { callAiRouterWithRetry } from '@/lib/ai/router';
+import { agentInstructLimiter } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
+    // Apply rate limiting
+    const { limited, remaining, resetTime } = await agentInstructLimiter(request);
+    if (limited) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please try again later.' },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil((resetTime - Date.now()) / 1000).toString(),
+            'X-RateLimit-Remaining': '0',
+          }
+        }
+      );
+    }
+
     const supabase = createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
