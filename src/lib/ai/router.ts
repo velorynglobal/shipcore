@@ -14,7 +14,34 @@ type AiRouterResponse = {
   response?: string;
   usage?: any;
   error?: string;
+  cached?: boolean;
 };
+
+// Simple in-memory cache (per server instance)
+const responseCache = new Map<string, { response: AiRouterResponse; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCacheKey(options: AiRouterOptions): string {
+  return JSON.stringify({ instruction: options.instruction, context: options.context, modelHint: options.modelHint });
+}
+
+function getCached(key: string): AiRouterResponse | null {
+  const cached = responseCache.get(key);
+  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    return { ...cached.response, cached: true };
+  }
+  responseCache.delete(key);
+  return null;
+}
+
+function setCache(key: string, response: AiRouterResponse): void {
+  responseCache.set(key, { response, timestamp: Date.now() });
+  // Clean up old entries
+  if (responseCache.size > 100) {
+    const entries = [...responseCache.entries()];
+    entries.slice(0, 50).forEach(([k]) => responseCache.delete(k));
+  }
+}
 
 const AI_ROUTER_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ai-router`
@@ -29,6 +56,11 @@ const AI_ROUTER_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
  */
 export async function callAiRouter(options: AiRouterOptions): Promise<AiRouterResponse> {
   try {
+    // Check cache first
+    const cacheKey = getCacheKey(options);
+    const cached = getCached(cacheKey);
+    if (cached) return cached;
+
     const supabase = createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: 'Unauthorized' };
@@ -46,11 +78,13 @@ export async function callAiRouter(options: AiRouterOptions): Promise<AiRouterRe
       modelHint: options.modelHint,
     };
 
+    const startTime = Date.now();
     const res = await fetch(AI_ROUTER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    const latency = Date.now() - startTime;
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -60,8 +94,28 @@ export async function callAiRouter(options: AiRouterOptions): Promise<AiRouterRe
       };
     }
 
-    const data = await res.json();
-    return data as AiRouterResponse;
+    const data = await res.json() as AiRouterResponse;
+    
+    // Log the request to ai_requests table
+    await supabase.from('ai_requests').insert({
+      company_id: profile.company_id,
+      user_id: user.id,
+      endpoint: '/api/ai-router',
+      provider: data.provider || 'router',
+      model: data.model || 'unknown',
+      status: 'success',
+      latency_ms: latency,
+      input_tokens: data.usage?.input_tokens || 0,
+      output_tokens: data.usage?.output_tokens || 0,
+      total_tokens: data.usage?.total_tokens || 0,
+    }).catch(() => {}); // Ignore logging errors
+
+    // Cache successful responses
+    if (data.success) {
+      setCache(cacheKey, data);
+    }
+
+    return data;
   } catch (err: any) {
     return { success: false, error: err.message };
   }
