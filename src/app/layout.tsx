@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Sans, IBM_Plex_Mono, Syne } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from '@/components/layout/AuthProvider';
-import ErrorBoundary from '@/components/ui/ErrorBoundary';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import './globals.css';
 
 const ibmPlexSans = IBM_Plex_Sans({
