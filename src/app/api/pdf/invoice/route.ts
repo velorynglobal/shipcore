@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { generateInvoicePDF } from '@/lib/pdf/InvoicePDF';
+import { sendEmail, buildInvoiceEmail, type EmailMessage } from '@/lib/email';
 
 export async function POST(request: Request) {
   try {
-    const { invoice } = await request.json();
+    const { invoice, email_to } = await request.json();
     if (!invoice) {
       return new Response(JSON.stringify({ error: 'invoice payload required' }), {
         status: 400,
@@ -11,6 +12,22 @@ export async function POST(request: Request) {
       });
     }
     const pdfBuffer = await generateInvoicePDF(invoice as any);
+
+    // Optionally send email with PDF attachment
+    if (email_to) {
+      const emailMsg: EmailMessage = {
+        to: email_to,
+        subject: `Invoice ${invoice.invoice_number || 'N/A'}`,
+        html: buildInvoiceEmail(invoice.invoice_number || 'N/A', invoice.customer?.company_name || ''),
+        attachment: {
+          content: pdfBuffer,
+          filename: `invoice_${invoice.invoice_number || 'N/A'}.pdf`,
+          type: 'application/pdf',
+        },
+      };
+      await sendEmail(emailMsg);
+    }
+
     return new Response(pdfBuffer, {
       status: 200,
       headers: {
