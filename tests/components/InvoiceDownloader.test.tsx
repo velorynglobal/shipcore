@@ -1,7 +1,8 @@
+/** @jest-environment jsdom */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import InvoiceDownloader from '../src/app/components/InvoiceDownloader';
+import InvoiceDownloader from '@/app/components/InvoiceDownloader';
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -21,7 +22,7 @@ describe('InvoiceDownloader', () => {
       new Promise(resolve => setTimeout(() => resolve({
         ok: true,
         blob: () => Promise.resolve(new Blob()),
-      }), 100)
+      }), 100))
     );
 
     render(<InvoiceDownloader />);

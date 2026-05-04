@@ -56,11 +56,13 @@ async function sendEmailNotification(msg: NotificationMessage): Promise<boolean>
     to: msg.email_to,
     subject: msg.subject || 'ShipCore Notification',
     text: msg.message,
-    attachment: msg.attachments?.[{
-      content: msg.attachments[0].content.toString('base64'),
-      filename: msg.attachments[0].filename,
-      type: msg.attachments[0].type,
-    }] : undefined,
+    attachment: msg.attachments?.[0]
+      ? {
+          content: msg.attachments[0].content,
+          filename: msg.attachments[0].filename,
+          type: msg.attachments[0].type,
+        }
+      : undefined,
   });
 }
 

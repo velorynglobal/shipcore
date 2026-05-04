@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
-type AiRouterOptions = {
+export type AiRouterOptions = {
   instruction: string;
   context?: any;
   modelHint?: string; // Optional: prefer a model
@@ -97,18 +97,22 @@ export async function callAiRouter(options: AiRouterOptions): Promise<AiRouterRe
     const data = await res.json() as AiRouterResponse;
     
     // Log the request to ai_requests table
-    await supabase.from('ai_requests').insert({
-      company_id: profile.company_id,
-      user_id: user.id,
-      endpoint: '/api/ai-router',
-      provider: data.provider || 'router',
-      model: data.model || 'unknown',
-      status: 'success',
-      latency_ms: latency,
-      input_tokens: data.usage?.input_tokens || 0,
-      output_tokens: data.usage?.output_tokens || 0,
-      total_tokens: data.usage?.total_tokens || 0,
-    }).catch(() => {}); // Ignore logging errors
+    try {
+      await supabase.from('ai_requests').insert({
+        company_id: profile.company_id,
+        user_id: user.id,
+        endpoint: '/api/ai-router',
+        provider: data.provider || 'router',
+        model: data.model || 'unknown',
+        status: 'success',
+        latency_ms: latency,
+        input_tokens: data.usage?.input_tokens || 0,
+        output_tokens: data.usage?.output_tokens || 0,
+        total_tokens: data.usage?.total_tokens || 0,
+      });
+    } catch {
+      // Ignore logging errors so API responses are not affected.
+    }
 
     // Cache successful responses
     if (data.success) {

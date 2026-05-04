@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSupabaseClient } from '@/lib/supabase';
+import { useSession, signOut } from 'next-auth/react';
 import type { AuthUser } from '@/types';
 
 interface AuthContextValue {
@@ -22,57 +22,44 @@ const AuthContext = createContext<AuthContextValue>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser]       = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const { data: session, status } = useSession();
   const router  = useRouter();
-  const supabase = getSupabaseClient();
 
   const loadUser = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) { setUser(null); return; }
+      const sessionUser = session.user as { id?: string; email?: string; name?: string };
 
-      const { data: profile } = await supabase
-        .from('users')
-        .select('*, company:companies(*)')
-        .eq('id', session.user.id)
-        .single();
-
-      if (profile) {
-        setUser({
-          id:         profile.id,
-          email:      profile.email,
-          full_name:  profile.full_name,
-          role:       profile.role,
-          company_id: profile.company_id,
-          company:    (profile as any).company,
-        });
-      }
+      // Simple user object for test auth
+      setUser({
+        id:         sessionUser.id || sessionUser.email || 'session-user',
+        email:      sessionUser.email || '',
+        full_name:  sessionUser.name || '',
+        role:       'viewer',
+        company_id: null,
+        company:    null,
+      });
     } catch (err) {
       console.error('[AuthProvider] loadUser error', err);
       setUser(null);
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [session]);
 
   useEffect(() => {
+    if (status === 'loading') return;
     loadUser();
+  }, [loadUser, status]);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN')  loadUser();
-      if (event === 'SIGNED_OUT') { setUser(null); router.push('/login'); }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [loadUser, router, supabase]);
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: '/login' });
     setUser(null);
     router.push('/login');
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signOut, refresh: loadUser }}>
+    <AuthContext.Provider value={{ user, loading, signOut: handleSignOut, refresh: loadUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -9,29 +9,36 @@ export async function middleware(request: NextRequest) {
     request: { headers: request.headers },
   });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
+  // Check if Supabase is configured
+  const hasSupabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  let session = null;
+  
+  if (hasSupabase) {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            request.cookies.set({ name, value, ...options });
+            response = NextResponse.next({ request: { headers: request.headers } });
+            response.cookies.set({ name, value, ...options });
+          },
+          remove(name: string, options: CookieOptions) {
+            request.cookies.set({ name, value: '', ...options });
+            response = NextResponse.next({ request: { headers: request.headers } });
+            response.cookies.set({ name, value: '', ...options });
+          },
         },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({ request: { headers: request.headers } });
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: '', ...options });
-          response = NextResponse.next({ request: { headers: request.headers } });
-          response.cookies.set({ name, value: '', ...options });
-        },
-      },
-    }
-  );
-
-  const { data: { session } } = await supabase.auth.getSession();
+      }
+    );
+    
+    const { data: { session: supabaseSession } } = await supabase.auth.getSession();
+    session = supabaseSession;
+  }
   const { pathname } = request.nextUrl;
 
   const isPublicRoute = PUBLIC_ROUTES.some(r => pathname.startsWith(r));
@@ -41,6 +48,8 @@ export async function middleware(request: NextRequest) {
   if (isApiRoute) return response;
 
   // Not logged in + not a public route → redirect to login
+  // Note: When Supabase is not configured, session will be null
+  // but our test auth (NextAuth) will handle authentication
   if (!session && !isPublicRoute) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirectTo', pathname);

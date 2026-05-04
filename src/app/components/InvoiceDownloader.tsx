@@ -60,26 +60,3 @@ export default function InvoiceDownloader({ invoiceId }: InvoiceDownloaderProps)
     </button>
   );
 }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'invoice_INV-1001.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error(e);
-      alert('Failed to download PDF. See console for details.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <button onClick={handleDownload} disabled={loading}>
-      {loading ? 'Generating...' : 'Download Invoice PDF'}
-    </button>
-  );
-}

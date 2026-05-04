@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       await sendEmail(emailMsg);
     }
 
-    return new Response(pdfBuffer, {
+    return new Response(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

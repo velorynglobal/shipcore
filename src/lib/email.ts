@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://shipcore.vercel.app';
 
 export interface EmailMessage {
@@ -16,7 +15,8 @@ export interface EmailMessage {
 }
 
 export async function sendEmail(msg: EmailMessage): Promise<boolean> {
-  if (!RESEND_API_KEY) {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (!resendApiKey) {
     console.warn('RESEND_API_KEY not configured');
     return false;
   }
@@ -43,7 +43,7 @@ export async function sendEmail(msg: EmailMessage): Promise<boolean> {
       {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${RESEND_API_KEY}`,
+          Authorization: `Bearer ${resendApiKey}`,
         },
       }
     );

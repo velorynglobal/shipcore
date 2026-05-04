@@ -1,20 +1,26 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { NextResponse } from 'next/server';
-import { POST as agentInstructPOST } from '../src/app/api/agent-instruct/route';
+import { POST as agentInstructPOST } from '@/app/api/agent-instruct/route';
 
 // Mock dependencies
-jest.mock('../src/lib/ai/router', () => ({
+jest.mock('@/lib/ai/router', () => ({
   callAiRouterWithRetry: jest.fn(),
 }));
 
-jest.mock('../src/lib/supabase-server', () => ({
+jest.mock('@/lib/supabase-server', () => ({
   createServerSupabaseClient: jest.fn(() => ({
     auth: {
-      getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }),
+      getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
     },
     from: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
+    in: jest.fn().mockResolvedValue({
+      data: [
+        { id: 'agent-ajit', agent_key: 'ajit_agent' },
+        { id: 'agent-target', agent_key: 'german_agent' },
+      ],
+    }),
     single: jest.fn().mockResolvedValue({
       data: {
         company_id: 'company-1',
@@ -32,7 +38,7 @@ describe('Agent Instruct API', () => {
   });
 
   it('should return 401 for unauthorized user', async () => {
-    const { createServerSupabaseClient } = require('../src/lib/supabase-server');
+    const { createServerSupabaseClient } = require('@/lib/supabase-server');
     (createServerSupabaseClient as jest.Mock).mockReturnValueOnce({
       auth: {
         getUser: jest.fn().mockResolvedValue({ data: { user: null } }),
@@ -61,14 +67,15 @@ describe('Agent Instruct API', () => {
   });
 
   it('should return 404 for missing agents', async () => {
-    const { createServerSupabaseClient } = require('../src/lib/supabase-server');
+    const { createServerSupabaseClient } = require('@/lib/supabase-server');
     (createServerSupabaseClient as jest.Mock).mockReturnValueOnce({
       auth: {
-        getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }),
+        getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
       },
       from: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
+      in: jest.fn().mockResolvedValue({ data: [] }),
       single: jest.fn().mockResolvedValue({ data: null }),
     });
 
@@ -83,7 +90,7 @@ describe('Agent Instruct API', () => {
   });
 
   it('should succeed with valid data', async () => {
-    const { callAiRouterWithRetry } = require('../src/lib/ai/router');
+    const { callAiRouterWithRetry } = require('@/lib/ai/router');
     (callAiRouterWithRetry as jest.Mock).mockResolvedValueOnce({
       success: true,
       model: 'claude-3-haiku-20240307',

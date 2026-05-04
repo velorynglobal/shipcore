@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import axios from 'axios';
-import { sendEmail, buildInvoiceEmail, buildQuoteEmail } from '../src/lib/email';
+import { sendEmail, buildInvoiceEmail, buildQuoteEmail } from '@/lib/email';
 
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;

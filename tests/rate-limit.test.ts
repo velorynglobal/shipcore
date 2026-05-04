@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { createRateLimiter, aiRouterLimiter, agentInstructLimiter } from '../src/lib/rate-limit';
+import { createRateLimiter, aiRouterLimiter, agentInstructLimiter } from '@/lib/rate-limit';
 
 describe('Rate Limiter', () => {
   beforeEach(() => {

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
-import { sendEmail, type EmailMessage } from '@/lib/email';
 import { whatsappLimiter } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {

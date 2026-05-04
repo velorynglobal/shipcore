@@ -14,7 +14,7 @@ interface MarketplaceAgent {
 }
 
 export default function MarketplacePage() {
-  const [agents, setAgents] = useState<MarketplaceAgent[]>([);
+  const [agents, setAgents] = useState<MarketplaceAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [installing, setInstalling] = useState<string | null>(null);
 
@@ -65,7 +65,7 @@ export default function MarketplacePage() {
     <div style={{ padding: 20, maxWidth: 1200, margin: '0 auto' }}>
       <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 24 }}>Agent Marketplace</h1>
       <p style={{ color: '#6b7280', marginBottom: 32 }}>
-        Install third-party agents to extend ShipCore's AI capabilities.
+        Install third-party agents to extend ShipCore&apos;s AI capabilities.
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 24 }}>

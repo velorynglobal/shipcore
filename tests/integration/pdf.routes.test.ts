@@ -1,17 +1,17 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { NextResponse } from 'next/server';
-import { POST as invoicePOST } from '../src/app/api/pdf/invoice/route';
-import { POST as quotePOST } from '../src/app/api/pdf/quote/route';
-import { POST as hblPOST } from '../src/app/api/pdf/hbl/route';
+import { POST as invoicePOST } from '@/app/api/pdf/invoice/route';
+import { POST as quotePOST } from '@/app/api/pdf/quote/route';
+import { POST as hblPOST } from '@/app/api/pdf/hbl/route';
 
 // Mock PDF generation
-jest.mock('../src/lib/pdf/InvoicePDF', () => ({
+jest.mock('@/lib/pdf/InvoicePDF', () => ({
   generateInvoicePDF: jest.fn().mockResolvedValue(Buffer.from('fake-pdf')),
 }));
-jest.mock('../src/lib/pdf/QuotePDF', () => ({
+jest.mock('@/lib/pdf/QuotePDF', () => ({
   generateQuotePDF: jest.fn().mockResolvedValue(Buffer.from('fake-pdf')),
 }));
-jest.mock('../src/lib/pdf/HBLPDF', () => ({
+jest.mock('@/lib/pdf/HBLPDF', () => ({
   generateHBLPDF: jest.fn().mockResolvedValue(Buffer.from('fake-pdf')),
 }));
 

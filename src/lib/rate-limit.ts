@@ -14,10 +14,9 @@ type RequestRecord = {
   resetTime: number;
 };
 
-const stores = new Map<string, Map<string, RequestRecord>>();
-
 export function createRateLimiter(config: RateLimitConfig) {
   const { windowMs, maxRequests } = config;
+  const store = new Map<string, RequestRecord>();
 
   function getIdentifier(request: Request): string {
     // Use IP address as identifier
@@ -30,12 +29,6 @@ export function createRateLimiter(config: RateLimitConfig) {
   return async function rateLimit(request: Request): Promise<{ limited: boolean; remaining: number; resetTime: number }> {
     const identifier = getIdentifier(request);
     const now = Date.now();
-
-    // Get or create store for this endpoint
-    if (!stores.has(identifier)) {
-      stores.set(identifier, new Map());
-    }
-    const store = stores.get(identifier)!;
 
     // Clean up old entries (simple cleanup)
     if (store.size > 1000) {
@@ -75,4 +68,9 @@ export const agentInstructLimiter = createRateLimiter({
 export const pdfLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
   maxRequests: 10, // 10 PDF generations per minute
+});
+
+export const whatsappLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  maxRequests: 30, // 30 webhook requests per minute
 });

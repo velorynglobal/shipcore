@@ -1,8 +1,5 @@
 import axios from 'axios';
 
-const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL || 'https://api.wati.io/v1';
-const WHATSAPP_TOKEN = process.env.WHATSAPP_API_TOKEN;
-
 export interface WhatsAppMessage {
   phone: string;
   message: string;
@@ -10,14 +7,17 @@ export interface WhatsAppMessage {
 }
 
 export async function sendWhatsAppMessage(msg: WhatsAppMessage): Promise<boolean> {
-  if (!WHATSAPP_TOKEN) {
+  const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://api.wati.io/v1';
+  const whatsappToken = process.env.WHATSAPP_API_TOKEN || process.env.WHATSAPP_TOKEN;
+
+  if (!whatsappToken) {
     console.warn('WHATSAPP_API_TOKEN not configured');
     return false;
   }
 
   try {
     const res = await axios.post(
-      `${WHATSAPP_API_URL}/send-message`,
+      `${whatsappApiUrl}/send-message`,
       {
         phone: msg.phone,
         message: msg.message,
@@ -25,7 +25,7 @@ export async function sendWhatsAppMessage(msg: WhatsAppMessage): Promise<boolean
       },
       {
         headers: {
-          'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+          'Authorization': `Bearer ${whatsappToken}`,
           'Content-Type': 'application/json',
         },
       }

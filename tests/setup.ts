@@ -36,7 +36,7 @@ jest.mock('@supabase/supabase-js', () => ({
       maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
     })),
     auth: {
-      getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' } }),
+      getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' } } }),
       getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
     },
   })),
@@ -44,6 +44,8 @@ jest.mock('@supabase/supabase-js', () => ({
 
 // Mock fetch globally
 global.fetch = jest.fn();
+global.URL.createObjectURL = jest.fn(() => 'blob:mock-url');
+global.URL.revokeObjectURL = jest.fn();
 
 // Clean up after each test
 afterEach(() => {

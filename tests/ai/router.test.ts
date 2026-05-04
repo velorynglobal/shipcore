@@ -1,5 +1,19 @@
-import { describe, it, expect } from '@jest/globals';
-import { callAiRouter, callAiRouterWithRetry } from '../src/lib/ai/router';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { callAiRouter, callAiRouterWithRetry } from '@/lib/ai/router';
+
+jest.mock('@/lib/supabase-server', () => ({
+  createServerSupabaseClient: jest.fn(() => ({
+    auth: {
+      getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
+    },
+    from: jest.fn(() => ({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      single: jest.fn().mockResolvedValue({ data: { company_id: 'company-1' } }),
+      insert: jest.fn().mockResolvedValue({}),
+    })),
+  })),
+}));
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -15,7 +29,7 @@ describe('AI Router', () => {
       json: async () => ({ success: true, model: 'test', response: 'hello' }),
     });
 
-    const result = await callAiRouter({ instruction: 'test' });
+    const result = await callAiRouter({ instruction: 'success-test' });
     expect(result.success).toBe(true);
     expect(result.response).toBe('hello');
   });
@@ -27,7 +41,7 @@ describe('AI Router', () => {
       json: async () => ({ error: 'Server error' }),
     });
 
-    const result = await callAiRouter({ instruction: 'test' });
+    const result = await callAiRouter({ instruction: 'error-test' });
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
   });
@@ -44,7 +58,7 @@ describe('AI Router', () => {
         json: async () => ({ success: true, model: 'test', response: 'success after retry' }),
       });
 
-    const result = await callAiRouterWithRetry({ instruction: 'test' }, 1);
+    const result = await callAiRouterWithRetry({ instruction: 'retry-test' }, 1);
     expect(result.success).toBe(true);
     expect(fetch).toHaveBeenCalledTimes(2);
   });

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { sendWhatsAppMessage, notifyEnquiryReceived } from '../src/lib/whatsapp';
+import axios from 'axios';
+import { sendWhatsAppMessage, notifyEnquiryReceived } from '@/lib/whatsapp';
 
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;

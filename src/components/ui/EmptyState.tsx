@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { type ReactNode } from 'react';
 
 interface EmptyStateProps {
   icon?: ReactNode;

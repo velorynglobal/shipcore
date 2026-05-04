@@ -57,7 +57,8 @@ export async function POST(request: Request) {
     }
 
     // Send custom invite email
-    const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/login?invite_token=${inviteData?.properties?.action_link || ''}`;
+    const inviteActionLink = (inviteData as any)?.properties?.action_link || '';
+    const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/login?invite_token=${inviteActionLink}`;
     
     const emailMsg: EmailMessage = {
       to: email,
