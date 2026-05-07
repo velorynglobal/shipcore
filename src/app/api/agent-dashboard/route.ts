@@ -1,8 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
+import { mockAgentDashboard, isSupabaseConfigured } from '@/lib/mock-data';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 export async function GET() {
+  // Return mock data if Supabase is not configured
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json(mockAgentDashboard);
+  }
+
   try {
     const supabase = createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();

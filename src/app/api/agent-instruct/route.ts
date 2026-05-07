@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
+import { isSupabaseConfigured } from '@/lib/mock-data';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { callAiRouterWithRetry } from '@/lib/ai/router';
 import { agentInstructLimiter } from '@/lib/rate-limit';
@@ -19,6 +20,16 @@ export async function POST(request: Request) {
           }
         }
       );
+    }
+
+    // Return mock response if Supabase is not configured
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json({ 
+        success: true, 
+        message_id: 'mock-msg-' + Date.now(), 
+        ai_model: 'mock-gpt-4',
+        data: 'Instruction queued (mock mode)'
+      });
     }
 
     const supabase = createServerSupabaseClient();

@@ -44,6 +44,14 @@ const handler = NextAuth({
   session: {
     strategy: 'jwt',
   },
+  callbacks: {
+    async redirect({ url, baseUrl }) {
+      // Allows relative callback URLs
+      if (url.startsWith(baseUrl)) return url;
+      // Redirect to base URL if callback URL is not a valid URL
+      return baseUrl;
+    },
+  },
 });
 
 export { handler as GET, handler as POST };

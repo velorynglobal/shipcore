@@ -1,67 +1,36 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { getToken } from 'next-auth/jwt';
 import { NextResponse, type NextRequest } from 'next/server';
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password'];
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: { headers: request.headers },
-  });
-
-  // Check if Supabase is configured
-  const hasSupabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  let session = null;
-  
-  if (hasSupabase) {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      {
-        cookies: {
-          get(name: string) {
-            return request.cookies.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            request.cookies.set({ name, value, ...options });
-            response = NextResponse.next({ request: { headers: request.headers } });
-            response.cookies.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            request.cookies.set({ name, value: '', ...options });
-            response = NextResponse.next({ request: { headers: request.headers } });
-            response.cookies.set({ name, value: '', ...options });
-          },
-        },
-      }
-    );
-    
-    const { data: { session: supabaseSession } } = await supabase.auth.getSession();
-    session = supabaseSession;
-  }
   const { pathname } = request.nextUrl;
 
   const isPublicRoute = PUBLIC_ROUTES.some(r => pathname.startsWith(r));
   const isApiRoute = pathname.startsWith('/api/');
+  const isAuthRoute = pathname.startsWith('/api/auth/');
 
-  // Allow API routes to handle their own auth
-  if (isApiRoute) return response;
+  // Allow API routes and NextAuth routes to handle their own auth
+  if (isApiRoute || isAuthRoute) return NextResponse.next();
+
+  // Check for NextAuth session
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  const isAuthenticated = !!token;
 
   // Not logged in + not a public route → redirect to login
-  // Note: When Supabase is not configured, session will be null
-  // but our test auth (NextAuth) will handle authentication
-  if (!session && !isPublicRoute) {
+  if (!isAuthenticated && !isPublicRoute) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirectTo', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   // Logged in + trying to access auth pages → redirect to dashboard
-  if (session && isPublicRoute) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  if (isAuthenticated && isPublicRoute) {
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {

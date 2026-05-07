@@ -1,30 +1,8 @@
 import type { Metadata, Viewport } from 'next';
-import { IBM_Plex_Sans, IBM_Plex_Mono, Syne } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
 import Providers from '@/components/layout/Providers';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import './globals.css';
-
-const ibmPlexSans = IBM_Plex_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-sans',
-  display: 'swap',
-});
-
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-mono',
-  display: 'swap',
-});
-
-const syne = Syne({
-  subsets: ['latin'],
-  weight: ['600', '700', '800'],
-  variable: '--font-display',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: {
@@ -44,7 +22,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${ibmPlexSans.variable} ${ibmPlexMono.variable} ${syne.variable}`}>
+    <html lang="en">
       <body className="font-sans antialiased bg-slate-50 text-slate-900">
         <Providers>
           <ErrorBoundary>
@@ -61,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               border:     '1px solid #334155',
               borderRadius: '12px',
               fontSize:   '14px',
-              fontFamily: 'IBM Plex Sans, sans-serif',
+              fontFamily: 'var(--font-sans)',
             },
             success: { iconTheme: { primary: '#10B981', secondary: '#fff' } },
             error:   { iconTheme: { primary: '#EF4444', secondary: '#fff' } },

@@ -1,44 +1,9 @@
-'use client';
-
-import { useState } from 'react';
-import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-
-// Install next-auth if not already installed
-// npm install next-auth@latest
-
-export default function LoginPage() {
-  const [email, setEmail] = useState('test@example.com');
-  const [password, setPassword] = useState('password123');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-        callbackUrl: new URLSearchParams(window.location.search).get('redirectTo') || '/',
-      });
-
-      if (result?.error) {
-        setError(result.error);
-      } else {
-        router.push(result?.url || '/');
-      }
-    } catch (err) {
-      setError('Login failed. Please try again.');
-      console.error('Login error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined }
+}) {
+  const redirectTo = searchParams.redirectTo as string || '/';
 
   return (
     <div style={{
@@ -51,21 +16,9 @@ export default function LoginPage() {
     }}>
       <h1 style={{ fontSize: 24, marginBottom: 24, textAlign: 'center' }}>Login</h1>
       
-      {error && (
-        <div style={{
-          padding: 12,
-          background: '#fee2e2',
-          color: '#991b1b',
-          borderRadius: 6,
-          marginBottom: 20,
-          textAlign: 'center',
-        }}>
-          {error}
-        </div>
-      )}
-      
-      <form onSubmit={handleSubmit}>
-        <input type="hidden" name="redirectTo" value="/" />
+      <form action="/api/auth/signin/credentials" method="post">
+        <input type="hidden" name="callbackUrl" value={redirectTo} />
+        <input type="hidden" name="redirect" value="true" />
         
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>Email</label>
@@ -80,8 +33,7 @@ export default function LoginPage() {
               borderRadius: 6,
               fontSize: 14,
             }}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            defaultValue="test@example.com"
           />
         </div>
         
@@ -98,14 +50,12 @@ export default function LoginPage() {
               borderRadius: 6,
               fontSize: 14,
             }}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            defaultValue="password123"
           />
         </div>
         
         <button
           type="submit"
-          disabled={loading}
           style={{
             width: '100%',
             padding: '12px',
@@ -115,11 +65,10 @@ export default function LoginPage() {
             borderRadius: 6,
             fontSize: 16,
             fontWeight: 600,
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.7 : 1,
+            cursor: 'pointer',
           }}
         >
-          {loading ? 'Signing in...' : 'Sign In'}
+          Sign In
         </button>
       </form>
     </div>

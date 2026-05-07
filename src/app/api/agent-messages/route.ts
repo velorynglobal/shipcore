@@ -1,8 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
+import { mockAgentMessages, isSupabaseConfigured } from '@/lib/mock-data';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 export async function GET(request: Request) {
+  // Return mock data if Supabase is not configured
+  if (!isSupabaseConfigured()) {
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit') || '30');
+    return NextResponse.json({ data: mockAgentMessages.slice(0, limit) });
+  }
+
   try {
     const supabase = createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();

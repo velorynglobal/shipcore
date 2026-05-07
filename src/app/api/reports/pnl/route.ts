@@ -1,8 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
+import { mockReports, isSupabaseConfigured } from '@/lib/mock-data';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 export async function GET(request: Request) {
+  // Return mock data if Supabase is not configured
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json({ data: [], summary: mockReports.pnl, error: null });
+  }
+
   try {
     const supabase = createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
