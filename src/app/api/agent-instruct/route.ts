@@ -79,13 +79,23 @@ export async function POST(request: Request) {
     if (error) throw error;
 
     // Send instruction to Ajit agent via AI Router (7-model fallback chain)
-    const aiResult = await callAiRouterWithRetry({
-      instruction: `Forward this instruction to ${target_agent}: ${instruction}`,
-      context: { from_agent: 'ajit_agent', target_agent, priority: priority || 'high' },
-      modelHint: 'claude', // Prefer Claude models for logistics tasks
-    });
+    let aiResult;
+    try {
+      aiResult = await callAiRouterWithRetry({
+        instruction: `Forward this instruction to ${target_agent}: ${instruction}`,
+        context: { from_agent: 'ajit_agent', target_agent, priority: priority || 'high' },
+        modelHint: 'claude', // Prefer Claude models for logistics tasks
+      });
+    } catch (aiErr: any) {
+      // Update message status to failed if AI router throws
+      await supabase
+        .from('agent_messages')
+        .update({ status: 'failed', payload: { ...basePayload, error: aiErr.message } })
+        .eq('id', data.id);
+      return NextResponse.json({ success: false, message_id: data.id, error: aiErr.message }, { status: 500 });
+    }
 
-    // Optionally update message status based on AI result
+    // Update message status based on AI result
     const updatedPayload = aiResult.success && aiResult.response
       ? { ...basePayload, ai_response: aiResult.response, model: aiResult.model }
       : { ...basePayload, error: aiResult.error };
@@ -94,6 +104,10 @@ export async function POST(request: Request) {
       .from('agent_messages')
       .update({ status: aiResult.success ? 'completed' : 'failed', payload: updatedPayload })
       .eq('id', data.id);
+
+    if (!aiResult.success) {
+      return NextResponse.json({ success: false, message_id: data.id, error: aiResult.error }, { status: 502 });
+    }
 
     return NextResponse.json({ success: true, message_id: data.id, ai_model: aiResult.model });
   } catch (err: any) {

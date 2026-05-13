@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { isSupabaseConfigured } from '@/lib/mock-data';
 
 export type AiRouterOptions = {
   instruction: string;
