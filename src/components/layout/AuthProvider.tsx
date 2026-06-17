@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Simple user object for test auth
       setUser({
-        id:         session.user.id,
+        id:         (session.user as any).id,
         email:      session.user.email || '',
         full_name:  session.user.name || '',
         role:       'admin',
