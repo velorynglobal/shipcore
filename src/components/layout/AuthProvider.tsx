@@ -1,61 +1,74 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
+import { getSupabaseClient } from '@/lib/supabase';
 import type { AuthUser } from '@/types';
 
 interface AuthContextValue {
-  user:    AuthUser | null;
+  user: AuthUser | null;
   loading: boolean;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
-  user:    null,
+  user: null,
   loading: true,
   signOut: async () => {},
   refresh: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser]       = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const { data: session, status } = useSession();
-  const router  = useRouter();
+  const router = useRouter();
+  const supabase = useMemo(() => getSupabaseClient(), []);
 
   const loadUser = useCallback(async () => {
-    try {
-      if (!session?.user) { setUser(null); return; }
-      const sessionUser = session.user as { id?: string; email?: string; name?: string };
+    setLoading(true);
 
-      // Simple user object for test auth
-      setUser({
-        id:         (session.user as any).id,
-        email:      session.user.email || '',
-        full_name:  session.user.name || '',
-        role:       'admin',
-        company_id: null,
-        company:    null,
-      });
-    } catch (err) {
-      console.error('[AuthProvider] loadUser error', err);
-      setUser(null);
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        setUser(null);
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('id, email, full_name, role, company_id, company:companies(*)')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (profileError || !profile) {
+        console.error('[AuthProvider] profile error', profileError);
+        setUser(null);
+        return;
+      }
+
+      const company = Array.isArray(profile.company) ? profile.company[0] : profile.company;
+      setUser({ ...profile, company } as AuthUser);
     } finally {
       setLoading(false);
     }
-  }, [session]);
+  }, [supabase]);
 
   useEffect(() => {
-    if (status === 'loading') return;
-    loadUser();
-  }, [loadUser, status]);
+    void loadUser();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+      void loadUser();
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, [loadUser, supabase]);
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/login' });
+    await supabase.auth.signOut();
     setUser(null);
-    router.push('/login');
+    router.replace('/login');
+    router.refresh();
   };
 
   return (

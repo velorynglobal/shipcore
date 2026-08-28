@@ -1,93 +1,78 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { authorizeAgentRequest, callAgentRouter, getAuthorizedCompanies } from '../_shared/runtime.ts';
+const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+const AGENT_KEY = 'ajit_agent';
+const ROUTER_URL = `${Deno.env.get('SUPABASE_URL')}/functions/v1/ai-router`;
+const ROUTER_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+const WATI_URL = Deno.env.get('WHATSAPP_API_URL');
+const WATI_TOKEN = Deno.env.get('WHATSAPP_API_TOKEN');
+const MD_PHONE = Deno.env.get('MD_PHONE_NUMBER');
 
-serve(async (req) => {
-  try {
-    const { instruction, target_agent, priority } = await req.json();
-    if (!instruction) {
-      return new Response(JSON.stringify({ error: 'instruction is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+const AGENT_URLS: Record<string,string> = {
+  tesla_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/tesla-agent',
+  einstein_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/einstein-agent',
+  steve_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/steve-agent',
+  ganesh_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/ganesh-agent',
+  pranali_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/pranali-agent',
+  alex_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/alex-agent',
+  komal_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/komal-agent',
+  aslesha_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/aslesha-agent',
+  german_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/german-agent',
+  andrew_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/andrew-agent',
+  dipika_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/dipika-agent',
+};
+
+async function callAI(prompt:string,system?:string):Promise<{text:string;model:string}>{try{return await callAgentRouter(prompt,system||'',AGENT_KEY);}catch{return{text:'',model:'error'};}}
+async function sendWhatsApp(phone:string,msg:string){if(!WATI_URL||!WATI_TOKEN||!phone)return;try{await fetch(`${WATI_URL}/sendSessionMessage/${phone.replace(/[^0-9]/g,'')}`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${WATI_TOKEN}`},body:JSON.stringify({messageText:msg})});}catch{}}
+
+Deno.serve(async (req: Request) => {
+  const auth = await authorizeAgentRequest(req);
+  if (auth instanceof Response) return auth;
+  const startTime = Date.now();
+  const body = req.method==='POST' ? await req.json().catch(()=>({})) : {};
+  const directInstruction = body.instruction as string | undefined;
+  const directTarget = body.target_agent as string | undefined;
+
+  const companies=await getAuthorizedCompanies(supabase,auth);
+  if(!companies?.length)return new Response(JSON.stringify({message:'No companies'}));
+
+  let routed = false;
+
+  for(const company of companies){
+    await supabase.from('ai_agents').update({last_run_at:new Date().toISOString()}).eq('company_id',company.id).eq('agent_key',AGENT_KEY);
+
+    // Mode 1: Direct instruction routing (called from /api/agent-instruct with target already known)
+    if (directInstruction && directTarget) {
+      const targetUrl = AGENT_URLS[directTarget];
+      if (targetUrl) {
+        try {
+          await fetch(targetUrl, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ instruction: directInstruction, from: AGENT_KEY }),
+          });
+          routed = true;
+        } catch { /* target may still process in background */ }
+      }
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
-    if (!supabaseUrl || !supabaseKey) {
-      return new Response(JSON.stringify({ error: 'Supabase environment variables not set' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    // Mode 2: Check for pending responses FROM other agents addressed to Ajit
+    const{data:responses} = await supabase.from('agent_messages').select('*').eq('company_id',company.id).eq('to_agent',AGENT_KEY).eq('message_type','response').eq('status','pending').order('created_at',{ascending:true}).limit(10);
+    for (const r of (responses||[])) {
+      await supabase.from('agent_messages').update({status:'processed',processed_at:new Date().toISOString()}).eq('id',r.id);
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Mode 3: Check pending approvals (agent_commands requiring sign-off)
+    const{data:pendingApprovals} = await supabase.from('agent_commands').select('id,command_type,requested_by').eq('company_id',company.id).eq('requires_approval',true).eq('status','queued').limit(10);
+    const criticalTasks = await supabase.from('tasks').select('id',{count:'exact',head:true}).eq('company_id',company.id).eq('priority','critical').eq('status','pending');
 
-    // Call AI Router Edge Function
-    const aiRouterUrl = `${supabaseUrl}/functions/v1/ai-router`;
-    const aiRes = await fetch(aiRouterUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        instruction: `You are Ajit, a logistics AI agent. Forward this instruction to ${target_agent}:
+    const summary = `Ajit: ${pendingApprovals?.length||0} approvals pending, ${criticalTasks.count||0} critical tasks. Instruction routed: ${routed?'Yes':'No'}.`;
 
-${instruction}
-
-Context: { target_agent: "${target_agent}", priority: "${priority || 'high'}" }`,
-        context: { agent: 'ajit', target_agent, priority: priority || 'high' },
-      }),
-    });
-
-    const aiData = await aiRes.json();
-    if (!aiRes.ok) {
-      throw new Error(aiData.error || `AI Router failed with status ${aiRes.status}`);
-    }
-
-    // Log the response to agent_messages
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id, company_id')
-      .eq('email', 'ai@veloryn.com')
-      .maybeSingle();
-
-    const userId = userData?.id || null;
-    const companyId = userData?.company_id || null;
-
-    if (companyId && userId) {
-      await supabase.from('agent_messages').insert({
-        company_id: companyId,
-        from_agent: 'ajit_agent',
-        to_agent: target_agent,
-        from_agent_id: '00000000-0000-0000-0000-000000000000', // Placeholder
-        to_agent_id: '00000000-0000-0000-0000-000000000000', // Placeholder
-        message_type: 'task',
-        priority: priority || 'high',
-        subject: `Instruction to ${target_agent}`,
-        payload: { instruction, ai_response: aiData.response, model: aiData.model },
-        status: 'completed',
-        created_by: userId,
-      });
-    }
-
-    return new Response(JSON.stringify({
-      success: true,
-      response: aiData.response,
-      model: aiData.model,
-      provider: aiData.provider,
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
+    await supabase.from('agent_logs').insert({
+      company_id:company.id, agent_id:AGENT_KEY, status:'completed',
+      summary, details:{approvals:pendingApprovals?.length||0, critical_tasks:criticalTasks.count||0, routed, responses_processed:responses?.length||0},
+      completed_at:new Date().toISOString(), duration_ms:Date.now()-startTime,
     });
   }
-});
 
-// To test locally:
-// curl -i --location --request POST 'http://localhost:54321/functions/v1/ajit-agent' \
-//   --header 'Content-Type: application/json' \
-//   --data '{"instruction":"Hello, who are you?","target_agent":"german_agent"}'
+  return new Response(JSON.stringify({success:true,agent:'Ajit',routed}),{headers:{'Content-Type':'application/json'}});
+});

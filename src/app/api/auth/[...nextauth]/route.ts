@@ -1,57 +1,11 @@
-import NextAuth from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
+import { NextResponse } from 'next/server';
 
-// Simple test credentials
-const testUsers = [
-  {
-    id: 'test-user-1',
-    name: 'Test User',
-    email: process.env.TEST_USER_EMAIL || 'test@example.com',
-    password: process.env.TEST_USER_PASSWORD || 'password123',
-  },
-];
+function retired() {
+  return NextResponse.json(
+    { error: 'This authentication endpoint has been retired. Use Supabase authentication.' },
+    { status: 410 },
+  );
+}
 
-const handler = NextAuth({
-  providers: [
-    CredentialsProvider({
-      name: 'Credentials',
-      credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
-      },
-      async authorize(credentials) {
-        // In production, replace with real database check
-        const user = testUsers.find(
-          (u) => u.email === credentials.email && u.password === credentials.password
-        );
-
-        if (user) {
-          return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-          };
-        }
-
-        return null;
-      },
-    }),
-  ],
-  pages: {
-    signIn: '/login',
-  },
-  secret: process.env.NEXTAUTH_SECRET,
-  session: {
-    strategy: 'jwt',
-  },
-  callbacks: {
-    async redirect({ url, baseUrl }) {
-      // Allows relative callback URLs
-      if (url.startsWith(baseUrl)) return url;
-      // Redirect to base URL if callback URL is not a valid URL
-      return baseUrl;
-    },
-  },
-});
-
-export { handler as GET, handler as POST };
+export const GET = retired;
+export const POST = retired;

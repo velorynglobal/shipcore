@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-server';
+import { agentRowsForCompany } from '@/lib/agent-definitions';
 
 export async function POST(request: Request) {
   try {
@@ -24,6 +25,13 @@ export async function POST(request: Request) {
       await admin.auth.admin.deleteUser(authData.user.id);
       await admin.from('companies').delete().eq('id', company.id);
       return NextResponse.json({ error: 'Failed to create user profile' }, { status: 500 });
+    }
+
+    const { error: agentsError } = await admin.from('ai_agents').insert(agentRowsForCompany(company.id));
+    if (agentsError) {
+      await admin.from('companies').delete().eq('id', company.id);
+      await admin.auth.admin.deleteUser(authData.user.id);
+      return NextResponse.json({ error: 'Failed to initialize company agents' }, { status: 500 });
     }
 
     return NextResponse.json({ data: { user: userProfile, company }, message: 'Account created successfully.', error: null }, { status: 201 });

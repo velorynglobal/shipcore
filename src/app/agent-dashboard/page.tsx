@@ -8,21 +8,6 @@ type Message = { id: string; from_agent: string; to_agent: string; subject: stri
 type Proposal = { id: string; proposal_number: string; feature_name: string; category: string; impact_score: number; status: string; business_problem: string; };
 type Log = { id: string; agent_id: string; status: string; summary: string; duration_ms: number; created_at: string; };
 
-const AGENT_URLS: Record<string,string> = {
-  tesla_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/tesla-agent',
-  einstein_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/einstein-agent',
-  steve_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/steve-agent',
-  ganesh_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/ganesh-agent',
-  pranali_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/pranali-agent',
-  alex_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/alex-agent',
-  komal_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/komal-agent',
-  aslesha_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/aslesha-agent',
-  ajit_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/ajit-agent',
-  german_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/german-agent',
-  andrew_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/andrew-agent',
-  dipika_agent:'https://wceiurzrlrcahviywlky.supabase.co/functions/v1/dipika-agent',
-};
-
 const DOMAIN_COLOR: Record<string,string> = {
   control:'bg-purple-500/20 text-purple-400 border-purple-500/30',
   sales:'bg-blue-500/20 text-blue-400 border-blue-500/30',
@@ -76,13 +61,11 @@ export default function AgentDashboardPage() {
   useEffect(() => { load(); }, [load]);
 
   const triggerAgent = async (agentKey: string) => {
-    const url = AGENT_URLS[agentKey];
-    if (!url) return toast.error('No URL for this agent');
     setTriggering(agentKey);
     try {
       const res = await fetch('/api/agent-trigger', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent_key: agentKey, url }),
+        body: JSON.stringify({ agent_key: agentKey }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -166,12 +149,10 @@ export default function AgentDashboardPage() {
                 {a.error_count > 0 && <span className="text-red-400">{a.error_count} errors</span>}
                 {a.last_run_at && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(a.last_run_at).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span>}
               </div>
-              {AGENT_URLS[a.agent_key] && (
-                <button onClick={() => triggerAgent(a.agent_key)} disabled={triggering===a.agent_key}
-                  className="w-full py-1.5 bg-brand-600/20 hover:bg-brand-600/40 text-brand-400 border border-brand-600/30 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5">
-                  {triggering===a.agent_key ? <><RefreshCw className="w-3 h-3 animate-spin" />Running…</> : <><Play className="w-3 h-3" />Trigger Now</>}
-                </button>
-              )}
+              <button onClick={() => triggerAgent(a.agent_key)} disabled={triggering===a.agent_key}
+                className="w-full py-1.5 bg-brand-600/20 hover:bg-brand-600/40 text-brand-400 border border-brand-600/30 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5">
+                {triggering===a.agent_key ? <><RefreshCw className="w-3 h-3 animate-spin" />Running…</> : <><Play className="w-3 h-3" />Trigger Now</>}
+              </button>
             </div>
           ))}
         </div>
